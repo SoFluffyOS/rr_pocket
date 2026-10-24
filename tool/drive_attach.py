@@ -14,6 +14,11 @@ device = sys.argv[3] if len(sys.argv) > 3 else "emulator-5554"
 adb = os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Android/Sdk")), "platform-tools/adb")
 main = f"{app_dir}/lib/main.dart"
 
+# attach compiles before it writes the plugin registrant, so a project's first
+# run would get no plugins; build bundle writes it first.
+if not os.path.exists(f"{app_dir}/.dart_tool/flutter_build/dart_plugin_registrant.dart"):
+    subprocess.run(["flutter", "build", "bundle"], cwd=app_dir, check=True)
+
 
 def logcat(pattern):
     out = subprocess.run([adb, "logcat", "-d"], capture_output=True, text=True).stdout
@@ -59,8 +64,9 @@ res, dt = call("app.restart", fullRestart=False)
 print(f"reload {dt*1000:.0f} ms -> {res.get('result') or res.get('error')}")
 open(main, "w").write(src)
 
+os.makedirs(f"{app_dir}/build", exist_ok=True)
 subprocess.run([adb, "exec-out", "screencap", "-p"],
-               stdout=open(f"{app_dir}/../after_reload.png", "wb"))
+               stdout=open(f"{app_dir}/build/after_reload.png", "wb"))
 p.stdin.write(json.dumps([{"id": 99, "method": "app.detach", "params": {"appId": app_id}}]) + "\n")
 p.stdin.flush()
 time.sleep(2)
