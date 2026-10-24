@@ -73,7 +73,15 @@ the new APK and run `tool/run_probe.sh`; it fails on any `MISSING`.
   keeps the home screen's list in step.
 - `app/fonts/`: Nunito, cut to static weights from Google Fonts' variable
   font (SIL Open Font License, `OFL.txt`).
-- `branding/`: the Play icon and the screenshot.
+- `branding/`: the icon and the README's screenshot.
+- `store/`: the Play listing (`listing.md`), a draft privacy policy, the
+  graphics (`play/`), and the demo app they show (`demo/`). Remake the
+  graphics with `tool/capture_store_screens.py` (a paired emulator or phone)
+  then `tool/make_store_assets.py`.
+- `tool/build_aab.sh`: the Play bundle, debug engine, not debuggable.
+- `.github/workflows/deploy_google_play.yml`: builds, tests and uploads to
+  Play (from Media Converter Ultimate's workflow; secrets listed at its
+  top).
 - `tool/build_apk.sh`: the build above.
 - `tool/check.sh`: every check that needs no phone (analysis, Flutter
   tests, Kotlin tests for the pairing code and the control server).
