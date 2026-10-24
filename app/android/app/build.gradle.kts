@@ -26,6 +26,14 @@ android {
         versionName = flutter.versionName
     }
 
+    // The debug engine's Vulkan validation layer (14.5 MB on arm64) loads only
+    // when validation is switched on in the manifest, which RR Pocket never does.
+    packaging {
+        jniLibs {
+            excludes += "**/libVkLayer_khronos_validation.so"
+        }
+    }
+
     // RR Pocket ships Flutter's debug engine: tool/build_apk.sh builds the
     // debug type and turns android:debuggable off afterwards.
 }
