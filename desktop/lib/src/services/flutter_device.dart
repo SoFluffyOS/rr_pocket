@@ -82,7 +82,12 @@ Future<List<String>> currentHelperCommand({String? dart}) async {
       final uri? when uri.isScheme('file') => uri.toFilePath(),
       _ => null,
     },
-    script: Platform.script.toFilePath(),
+    // Run as `package:rr_pocket/pocket.dart`, as Flutter runs it, the script
+    // has no file path; the package config then names it anyway.
+    script: switch (Platform.script) {
+      final uri when uri.isScheme('file') => uri.toFilePath(),
+      final uri => '$uri',
+    },
   );
 }
 
