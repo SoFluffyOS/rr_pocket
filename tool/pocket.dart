@@ -1,0 +1,282 @@
+// RR Pocket's side on the computer: pairs with the phone, then stands behind
+// the `pocket` custom device, so a stock `flutter run -d pocket` runs a
+// project on the phone over Wi-Fi. Needs only the Dart that ships with
+// Flutter: no adb, no Android SDK.
+//
+//   dart tool/pocket.dart pair <phone address> <code>
+//   flutter run -d pocket
+//
+// The tool calls the rest: ping, install <flutter_assets> <app>, run <app>,
+// uninstall <app>.
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+const deviceId = 'pocket';
+const controlPort = 8100;
+
+Future<void> main(List<String> args) async {
+  try {
+    exitCode = await switch (args) {
+      ['pair', final address, final code] => pair(address, code),
+      ['ping'] => ping(),
+      ['install', final bundle, _] => install(bundle),
+      ['run', ...] => run(),
+      ['uninstall', ...] => stop(),
+      _ => usage(),
+    };
+  } on PocketException catch (e) {
+    stderr.writeln('RR Pocket: ${e.message}');
+    exitCode = 1;
+  } on SocketException catch (e) {
+    stderr.writeln(
+      'RR Pocket: cannot reach the phone (${e.message}). Is RR Pocket open, '
+      'on the same Wi-Fi?',
+    );
+    exitCode = 1;
+  }
+  // HttpClient keeps the process alive otherwise.
+  exit(exitCode);
+}
+
+Future<int> usage() async {
+  stderr.writeln(
+    'usage: dart pocket.dart pair <phone address> <code>\n'
+    '       (then: flutter run -d $deviceId)',
+  );
+  return 64;
+}
+
+Future<int> pair(String address, String code) async {
+  final (host, port) = switch (address.split(':')) {
+    [final host, final port] => (host, int.parse(port)),
+    _ => (address, controlPort),
+  };
+  final phone = Phone(host, port, code.replaceAll(RegExp(r'[\s-]'), ''));
+  final hello = await phone.hello();
+  await phone.save();
+  stdout.writeln(
+    'Paired with ${hello['name']} at $host (Flutter ${hello['flutterVersion']}).',
+  );
+  await registerDevice();
+  stdout.writeln('Run a project on it with: flutter run -d $deviceId');
+  return 0;
+}
+
+/// Adds the `pocket` custom device, replacing an older entry.
+Future<void> registerDevice() async {
+  final dart = Platform.resolvedExecutable;
+  final script = File.fromUri(Platform.script).absolute.path;
+  List<String> helper(List<String> args) => [dart, script, ...args];
+  final config = {
+    'id': deviceId,
+    'label': 'RR Pocket',
+    'sdkNameAndVersion': 'RR Pocket over Wi-Fi',
+    'platform': 'linux-arm64',
+    'enabled': true,
+    'ping': helper(['ping']),
+    'pingSuccessRegex': null,
+    'postBuild': null,
+    'install': helper(['install', r'${localPath}', r'${appName}']),
+    'uninstall': helper(['uninstall', r'${appName}']),
+    'runDebug': helper(['run', r'${appName}']),
+    'forwardPort': null,
+    'forwardPortSuccessRegex': null,
+    'screenshot': null,
+    'readLogs': null,
+  };
+  final flutter = Platform.isWindows ? 'flutter.bat' : 'flutter';
+  await Process.run(flutter, ['config', '--enable-custom-devices']);
+  await Process.run(flutter, ['custom-devices', 'delete', '-d', deviceId]);
+  final added = await Process.run(flutter, [
+    'custom-devices',
+    'add',
+    '--json=${jsonEncode(config)}',
+  ]);
+  if (added.exitCode != 0) {
+    throw PocketException('flutter custom-devices add failed: ${added.stderr}');
+  }
+}
+
+Future<int> ping() async {
+  await (await Phone.load()).hello();
+  return 0;
+}
+
+/// Sends the bundle: the kernel and the assets, not the engine's own
+/// snapshots, which RR Pocket carries.
+Future<int> install(String bundlePath) async {
+  final phone = await Phone.load();
+  final hello = await phone.hello();
+  checkEngine(hello);
+  final bundle = Directory(bundlePath);
+  const skipped = {
+    'isolate_snapshot_data',
+    'vm_snapshot_data',
+    '.last_build_id',
+  };
+  final files = [
+    for (final entity in bundle.listSync(recursive: true))
+      if (entity is File && !skipped.contains(entity.uri.pathSegments.last))
+        entity,
+  ];
+  final watch = Stopwatch()..start();
+  var sent = 0;
+  var raw = 0;
+  await phone.call('POST', '/bundle/begin');
+  for (final file in files) {
+    final relative = file.path
+        .substring(bundle.path.length + 1)
+        .replaceAll(Platform.pathSeparator, '/');
+    final bytes = await file.readAsBytes();
+    final packed = GZipCodec(level: 1).encode(bytes);
+    raw += bytes.length;
+    sent += packed.length;
+    await phone.call(
+      'PUT',
+      '/bundle/${Uri.encodeComponent(relative)}',
+      body: packed,
+      gzip: true,
+    );
+  }
+  await phone.call('POST', '/bundle/commit');
+  stdout.writeln(
+    'Sent ${files.length} files, ${mb(raw)} as ${mb(sent)}, '
+    'in ${watch.elapsedMilliseconds} ms.',
+  );
+  return 0;
+}
+
+/// Restarts RR Pocket into the bundle and prints the VM service's address,
+/// which is how the tool finds it, then the app's `print` output, which is
+/// how the tool shows it. Stays up like a running app would; when the tool
+/// stops it, RR Pocket goes back to its own screen.
+Future<int> run() async {
+  final phone = await Phone.load();
+  final hello = await phone.hello();
+  final result = await phone.call('POST', '/run');
+  final vmPath = result['vmPath'] as String;
+  final relay = hello['vmRelayPort'] as int;
+  stdout.writeln(
+    'The Dart VM service is listening on http://${phone.host}:$relay$vmPath',
+  );
+  final stopped = Completer<void>();
+  for (final signal in [
+    ProcessSignal.sigint,
+    if (!Platform.isWindows) ProcessSignal.sigterm,
+  ]) {
+    signal.watch().listen((_) {
+      if (!stopped.isCompleted) stopped.complete();
+    });
+  }
+  unawaited(phone.logs().forEach(stdout.writeln).catchError((Object _) {}));
+  await stopped.future;
+  await phone.call('POST', '/stop').catchError((_) => <String, Object?>{});
+  return 0;
+}
+
+Future<int> stop() async {
+  await (await Phone.load()).call('POST', '/stop');
+  return 0;
+}
+
+/// The project's kernel runs only on the engine that SDK was built for.
+void checkEngine(Map<String, Object?> hello) {
+  final ours = sdkVersions();
+  if (ours == null) return;
+  final theirs = hello['engineRevision'];
+  if (theirs == ours['engineRevision']) return;
+  throw PocketException(
+    'this project uses Flutter ${ours['frameworkVersion']}, RR Pocket runs '
+    'Flutter ${hello['flutterVersion']}. Use that version for this run '
+    '(for example with fvm).',
+  );
+}
+
+/// The running Flutter SDK's versions, from FLUTTER_ROOT (set by the tool).
+Map<String, Object?>? sdkVersions() {
+  final root = Platform.environment['FLUTTER_ROOT'];
+  if (root == null) return null;
+  final file = File('$root/bin/cache/flutter.version.json');
+  if (!file.existsSync()) return null;
+  return jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
+}
+
+String mb(int bytes) => '${(bytes / 1048576).toStringAsFixed(1)} MB';
+
+class Phone {
+  Phone(this.host, this.port, this.code);
+
+  final String host;
+  final int port;
+  final String code;
+  final _client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+
+  static File get _file {
+    final home = Platform.environment[Platform.isWindows ? 'APPDATA' : 'HOME'];
+    final dir = Platform.isWindows
+        ? '$home\\rr_pocket'
+        : '$home/.config/rr_pocket';
+    return File('$dir${Platform.pathSeparator}device.json');
+  }
+
+  static Future<Phone> load() async {
+    if (!_file.existsSync()) {
+      throw PocketException(
+        'not paired yet: dart pocket.dart pair <address> <code>',
+      );
+    }
+    final json = jsonDecode(await _file.readAsString()) as Map<String, Object?>;
+    return Phone(
+      json['host'] as String,
+      json['port'] as int,
+      json['code'] as String,
+    );
+  }
+
+  Future<void> save() async {
+    await _file.parent.create(recursive: true);
+    await _file.writeAsString(
+      jsonEncode({'host': host, 'port': port, 'code': code}),
+    );
+  }
+
+  Future<Map<String, Object?>> hello() => call('GET', '/hello');
+
+  /// The running app's `print` output, line by line, until the app stops.
+  Stream<String> logs() async* {
+    final request = await _client.open('GET', host, port, '/logs');
+    request.headers.set('authorization', 'Bearer $code');
+    final response = await request.close();
+    yield* response.transform(utf8.decoder).transform(const LineSplitter());
+  }
+
+  Future<Map<String, Object?>> call(
+    String method,
+    String path, {
+    List<int>? body,
+    bool gzip = false,
+  }) async {
+    final request = await _client.open(method, host, port, path);
+    request.headers.set('authorization', 'Bearer $code');
+    if (gzip) request.headers.set('content-encoding', 'gzip');
+    request.contentLength = body?.length ?? 0;
+    if (body != null) request.add(body);
+    final response = await request.close();
+    final text = await utf8.decodeStream(response);
+    final json = jsonDecode(text) as Map<String, Object?>;
+    if (response.statusCode == 401) {
+      throw PocketException('the phone refused the pairing code; pair again');
+    }
+    if (response.statusCode != 200) {
+      throw PocketException('$method $path: ${json['error'] ?? text}');
+    }
+    return json;
+  }
+}
+
+class PocketException implements Exception {
+  PocketException(this.message);
+
+  final String message;
+}
