@@ -16,8 +16,12 @@ Future<String> requestPairing(
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
   try {
     final request = await client.post(host, port, '/pair');
+    // RR Pocket reads a body by its Content-Length; it has no chunked
+    // decoding, so the length is set rather than streamed.
+    final body = utf8.encode(jsonEncode({'computer': computer}));
     request.headers.contentType = ContentType.json;
-    request.write(jsonEncode({'computer': computer}));
+    request.contentLength = body.length;
+    request.add(body);
     final response = await request.close().timeout(timeout);
     final text = await utf8.decodeStream(response).timeout(timeout);
     final json = _decode(text);

@@ -43,6 +43,13 @@ class FakePhone {
 
   Future<void> _handle(HttpRequest request) async {
     final response = request.response;
+    // RR Pocket's server reads a body by its Content-Length only: a chunked
+    // one arrives empty there, so it fails here.
+    if (request.headers.chunkedTransferEncoding) {
+      response.statusCode = 400;
+      response.write(jsonEncode({'error': 'send a Content-Length'}));
+      return response.close();
+    }
     if (request.method == 'POST' && request.uri.path == '/pair') {
       final body = jsonDecode(await utf8.decodeStream(request)) as Map;
       pairRequests.add('${body['computer']}');
