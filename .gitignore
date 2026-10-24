@@ -5,3 +5,5 @@ __pycache__/
 app/android/app/src/main/assets/rr_plugins.json
 # The upload keystore the deploy workflow decodes.
 .assets/
+# Raw screens from tool/capture_store_screens.py.
+store/captures/
