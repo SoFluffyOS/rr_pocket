@@ -52,11 +52,14 @@ Future<void> registerDevice(RunFlutter flutter, List<String> helper) async {
 /// How Flutter calls this running copy of the tool back (see
 /// [helperCommand]), with [dart] or the one running this.
 Future<List<String>> currentHelperCommand({String? dart}) async {
+  final config = await Isolate.packageConfig;
   return helperCommand(
     dart: dart ?? Platform.resolvedExecutable,
-    script: Platform.script,
-    packageRoot: await _packageRoot(),
-    separator: Platform.pathSeparator,
+    packageConfig: switch (config) {
+      final uri? when uri.isScheme('file') => uri.toFilePath(),
+      _ => null,
+    },
+    script: Platform.script.toFilePath(),
   );
 }
 
@@ -70,19 +73,4 @@ Future<String?> findFlutterDart(RunFlutter flutter) async {
   final dart = flutterDart(root, windows: Platform.isWindows);
   if (!await File(dart).exists()) return null;
   return dart;
-}
-
-/// This package's folder: from the package config, or the script's.
-Future<String> _packageRoot() async {
-  try {
-    final library = await Isolate.resolvePackageUri(
-      Uri.parse('package:$packageName/$packageName.dart'),
-    );
-    if (library != null && library.isScheme('file')) {
-      return File.fromUri(library).parent.parent.path;
-    }
-  } catch (_) {
-    // Running without a package config.
-  }
-  return File.fromUri(Platform.script).parent.parent.path;
 }

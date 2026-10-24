@@ -53,11 +53,17 @@ class Phone {
   final String code;
   final _client = HttpClient()..connectionTimeout = connectionTimeout;
 
-  /// The paired phone, or null before pairing.
+  /// The paired phone, or null before pairing. A pairing file that can't
+  /// be read, such as one cut short, counts as none: pairing again fixes it.
   static Future<Phone?> tryLoad(PocketConfig config) async {
     final file = config.deviceFile;
     if (!await file.exists()) return null;
-    final json = jsonDecode(await file.readAsString());
+    final Object? json;
+    try {
+      json = jsonDecode(await file.readAsString());
+    } on FormatException {
+      return null;
+    }
     if (json
         case {
           'host': final String host,
@@ -66,10 +72,7 @@ class Phone {
         }) {
       return Phone(host, port, code);
     }
-    throw PocketException(
-      '${file.path} is not a pairing; pair again: '
-      'pocket pair <address> <code>',
-    );
+    return null;
   }
 
   static Future<Phone> load(PocketConfig config) async {

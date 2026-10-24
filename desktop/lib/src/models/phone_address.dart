@@ -12,23 +12,40 @@ class PhoneAddress {
   static PhoneAddress? tryParse(String text) {
     final trimmed = text.trim();
     if (trimmed.isEmpty || trimmed.contains(RegExp(r'[\s/]'))) return null;
-    final parts = trimmed.split(':');
-    if (parts case [final host]) return PhoneAddress(host, controlPort);
-    if (parts case [final host, final port] when host.isNotEmpty) {
-      return switch (int.tryParse(port)) {
-        final number? when number > 0 && number < 65536 =>
-          PhoneAddress(host, number),
-        _ => null,
-      };
+    // [fe80::1]:8100, or a bare IPv6 address on the control port.
+    if (RegExp(r'^\[([^\]]+)\](?::(\d+))?$').firstMatch(trimmed)
+        case final match?) {
+      return _withPort(match.group(1), match.group(2) ?? '$controlPort');
     }
-    return null;
+    if (trimmed.startsWith('[')) return null;
+    final parts = trimmed.split(':');
+    return switch (parts) {
+      [final host] => PhoneAddress(host, controlPort),
+      [final host, final port] => _withPort(host, port),
+      _ => PhoneAddress(trimmed, controlPort),
+    };
+  }
+
+  static PhoneAddress? _withPort(String? host, String port) {
+    if (host == null || host.isEmpty) return null;
+    return switch (int.tryParse(port)) {
+      final number? when number > 0 && number < 65536 =>
+        PhoneAddress(host, number),
+      _ => null,
+    };
   }
 
   @override
-  String toString() => switch (port) {
-        controlPort => host,
-        _ => '$host:$port',
-      };
+  String toString() {
+    final shown = switch (host.contains(':')) {
+      true => '[$host]',
+      false => host,
+    };
+    return switch (port) {
+      controlPort => shown,
+      _ => '$shown:$port',
+    };
+  }
 }
 
 /// The pairing code as the phone checks it: digits only, so `1234-5678`

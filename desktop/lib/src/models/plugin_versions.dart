@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-/// Package versions from a pubspec.lock.
+/// Package versions from a pubspec.lock, with either line ending.
 Map<String, String> parseLockedVersions(String lock) => {
       for (final match in RegExp(
         r'\n  (\w+):\n(?:    .*\n)*?    version: "([^"]+)"',
-      ).allMatches(lock))
+      ).allMatches(lock.replaceAll('\r\n', '\n')))
         if ((match.group(1), match.group(2)) case (final name?, final version?))
           name: version,
     };

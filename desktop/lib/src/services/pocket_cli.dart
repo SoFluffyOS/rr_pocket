@@ -50,6 +50,9 @@ class PocketCli {
         'open, on the same Wi-Fi?',
       );
       return 1;
+    } catch (e) {
+      stderr.writeln('RR Pocket: ${describePhoneError(e)}');
+      return 1;
     }
   }
 
@@ -104,15 +107,16 @@ class PocketCli {
   }
 
   /// Flutter runs the app even when install failed (it only logs the
-  /// failure), so install leaves its outcome where run checks it.
+  /// failure), so install leaves its outcome where run checks it, whatever
+  /// the failure: otherwise run would start the bundle sent before.
   Future<int> _recordInstall(Future<int> Function() install) async {
     final marker = config.installFailedFile;
     if (marker.existsSync()) marker.deleteSync();
     try {
       return await install();
-    } on PocketException catch (e) {
+    } catch (e) {
       await marker.parent.create(recursive: true);
-      await marker.writeAsString(e.message);
+      await marker.writeAsString(describePhoneError(e));
       rethrow;
     }
   }
@@ -172,14 +176,8 @@ class PocketCli {
     if (marker.existsSync()) {
       throw PocketException('not running: ${marker.readAsStringSync()}');
     }
-    final phone = await Phone.load(config);
-    final hello = await phone.hello();
-    final result = await phone.call('POST', '/run');
-    final vmPath = result['vmPath'];
-    final relay = hello['vmRelayPort'];
-    stdout.writeln(
-      'The Dart VM service is listening on http://${phone.host}:$relay$vmPath',
-    );
+    // Listening first: Flutter may stop the run as soon as it has the
+    // VM service's address.
     final stopped = Completer<void>();
     for (final signal in [
       ProcessSignal.sigint,
@@ -189,6 +187,14 @@ class PocketCli {
         if (!stopped.isCompleted) stopped.complete();
       });
     }
+    final phone = await Phone.load(config);
+    final hello = await phone.hello();
+    final result = await phone.call('POST', '/run');
+    final vmPath = result['vmPath'];
+    final relay = hello['vmRelayPort'];
+    stdout.writeln(
+      'The Dart VM service is listening on http://${phone.host}:$relay$vmPath',
+    );
     unawaited(phone.logs().forEach(stdout.writeln).catchError((Object _) {}));
     await stopped.future;
     await phone.call('POST', '/stop').catchError((_) => <String, Object?>{});

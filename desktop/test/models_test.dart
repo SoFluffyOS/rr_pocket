@@ -15,6 +15,16 @@ void main() {
       expect('$address', '10.0.2.2:9100');
     });
 
+    test('takes IPv6 addresses, bare or bracketed', () {
+      final bare = PhoneAddress.tryParse('fe80::1');
+      expect((bare?.host, bare?.port), ('fe80::1', controlPort));
+      expect('$bare', '[fe80::1]');
+      final bracketed = PhoneAddress.tryParse('[::1]:9100');
+      expect((bracketed?.host, bracketed?.port), ('::1', 9100));
+      expect('$bracketed', '[::1]:9100');
+      expect(PhoneAddress.tryParse('[::1]:x'), isNull);
+    });
+
     test('refuses what is not an address', () {
       for (final text in ['', ' ', 'a b', 'http://x', ':80', 'x:0', 'x:y']) {
         expect(PhoneAddress.tryParse(text), isNull, reason: text);
@@ -47,6 +57,13 @@ sdks:
 
     test('reads a pubspec.lock', () {
       expect(parseLockedVersions(lock), {'camera': '0.12.1', 'path': '1.9.1'});
+    });
+
+    test('reads a pubspec.lock with Windows line endings', () {
+      expect(
+        parseLockedVersions(lock.replaceAll('\n', '\r\n')),
+        {'camera': '0.12.1', 'path': '1.9.1'},
+      );
     });
 
     test('reads the Android plugins Flutter resolved', () {
@@ -131,29 +148,29 @@ sdks:
       ]);
     });
 
-    test('an installed package is called through pub global run', () {
+    test('runs the pocket library with the package config of this copy', () {
+      const config = '/home/me/.pub-cache/global_packages/rr_pocket/.dart_tool/'
+          'package_config.json';
       final helper = helperCommand(
         dart: '/sdk/bin/dart',
-        script: Uri.file(
-          '/home/me/.pub-cache/global_packages/rr_pocket/bin/'
-          'pocket.dart-3.13.4.snapshot',
-        ),
-        packageRoot: '/home/me/.pub-cache/git/rr_pocket-abc/desktop',
-        separator: '/',
+        packageConfig: config,
+        script: '/home/me/.pub-cache/global_packages/rr_pocket/bin/'
+            'pocket.dart-3.13.4.snapshot',
       );
-      expect(helper,
-          ['/sdk/bin/dart', 'pub', 'global', 'run', 'rr_pocket:pocket']);
+      expect(helper, [
+        '/sdk/bin/dart',
+        '--packages=$config',
+        'package:rr_pocket/pocket.dart',
+      ]);
     });
 
-    test('a checkout is called through its bin/pocket.dart', () {
+    test('without a package config, runs the script', () {
       final helper = helperCommand(
         dart: '/sdk/bin/dart',
-        script: Uri.file('/src/rr_pocket/desktop/bin/main.dart'),
-        packageRoot: '/src/rr_pocket/desktop',
-        separator: '/',
+        packageConfig: null,
+        script: '/src/pocket.dart',
       );
-      expect(
-          helper, ['/sdk/bin/dart', '/src/rr_pocket/desktop/bin/pocket.dart']);
+      expect(helper, ['/sdk/bin/dart', '/src/pocket.dart']);
     });
   });
 

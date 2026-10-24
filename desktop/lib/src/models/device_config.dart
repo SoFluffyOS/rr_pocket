@@ -27,23 +27,19 @@ Map<String, Object?> deviceConfig(List<String> helper) {
 
 /// The command Flutter runs to reach this tool, saved in its settings.
 ///
-/// An installed package runs from a snapshot named after the Dart version
-/// ([script] ends in `.snapshot`), which an upgrade replaces, so it is
-/// called through `dart pub global run`. Otherwise this is a checkout, and
-/// Flutter runs `bin/pocket.dart` from [packageRoot].
+/// It runs `package:rr_pocket/pocket.dart` with the package config this
+/// copy runs with ([packageConfig]): an installed package's stays at the
+/// same path across upgrades, unlike the snapshot pub runs, which is named
+/// after the Dart version. Not `dart pub global run`: that runs the tool in
+/// a child process, which never hears Flutter stop it, so the app would
+/// stay open on the phone. Without a package config, [script] itself.
 List<String> helperCommand({
   required String dart,
-  required Uri script,
-  required String packageRoot,
-  required String separator,
+  required String? packageConfig,
+  required String script,
 }) {
-  if (script.path.endsWith('.snapshot')) {
-    return [dart, 'pub', 'global', 'run', '$packageName:$cliExecutable'];
-  }
-  return [
-    dart,
-    [packageRoot, 'bin', '$cliExecutable.dart'].join(separator)
-  ];
+  if (packageConfig == null) return [dart, script];
+  return [dart, '--packages=$packageConfig', cliLibrary];
 }
 
 /// The Flutter SDK's folder, from `flutter --version --machine`, whose

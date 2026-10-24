@@ -8,6 +8,7 @@ const Duration connectionTimeout = Duration(seconds: 5);
 // the package, as `dart pub global run` names it
 const String packageName = 'rr_pocket';
 const String cliExecutable = 'pocket';
+const String cliLibrary = 'package:rr_pocket/pocket.dart';
 
 // commands
 const String cmdPair = 'rr_pocket.pair';

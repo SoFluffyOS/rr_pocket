@@ -1,9 +1,3 @@
-import 'dart:io';
+import 'package:rr_pocket/pocket.dart' as pocket;
 
-import 'package:rr_pocket/rr_pocket.dart';
-
-Future<void> main(List<String> args) async {
-  exitCode = await PocketCli()(args);
-  // HttpClient keeps the process alive otherwise.
-  exit(exitCode);
-}
+Future<void> main(List<String> args) => pocket.main(args);

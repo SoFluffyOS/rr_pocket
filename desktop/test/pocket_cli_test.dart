@@ -61,6 +61,21 @@ void main() {
     expect(phone.requests, isNot(contains('POST /run')));
   });
 
+  test('an install the network cut short stops the run too', () async {
+    await phone.close();
+
+    expect(await cli(['install', bundle.path, 'app']), 1);
+    expect(config.installFailedFile.readAsStringSync(), contains('reach'));
+    expect(await cli(['run', 'app']), 1);
+  });
+
+  test('an unreadable pairing counts as none', () async {
+    config.deviceFile.writeAsStringSync('{"host": "127.0.0.1", "po');
+
+    expect(await Phone.tryLoad(config), isNull);
+    expect(await cli(['ping']), 1);
+  });
+
   test('ping fails before pairing', () async {
     final unpaired = PocketCli(config: PocketConfig('${temp.path}/none'));
     expect(await unpaired(['ping']), 1);
