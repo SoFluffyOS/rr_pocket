@@ -71,6 +71,7 @@ class FakeWindow implements LumideWindow {
   /// The payload of the quick pick item to choose; null dismisses it.
   Object? pickPayload;
   List<QuickPickItem> lastPick = const [];
+  Map<String, int>? lastPosition;
 
   @override
   Future<void> showMessage(
@@ -108,6 +109,7 @@ class FakeWindow implements LumideWindow {
     Map<String, int>? position,
   }) async {
     lastPick = items;
+    lastPosition = position;
     for (final item in items) {
       if (item.payload == pickPayload) return item;
     }
@@ -225,10 +227,12 @@ class FakeEditor implements LumideEditor {
 
 class FakeCommands implements LumideCommands {
   final executed = <String>[];
+  final executedArgs = <Map<String, dynamic>?>[];
 
   @override
   Future<bool> executeCommand(String id, [Map<String, dynamic>? args]) async {
     executed.add(id);
+    executedArgs.add(args);
     return true;
   }
 

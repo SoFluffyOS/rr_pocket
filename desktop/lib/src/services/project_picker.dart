@@ -11,7 +11,7 @@ class ProjectPicker {
 
   /// The project folder to act on, or null when there is none or the user
   /// dismissed the choice.
-  Future<String?> pick() async {
+  Future<String?> pick({Map<String, int>? position}) async {
     final projects = await flutterProjects();
     if (projects.isEmpty) {
       await context.window.showMessage(
@@ -39,11 +39,12 @@ class ProjectPicker {
         for (final project in ordered)
           QuickPickItem(
             label: path.basename(project),
-            description: project,
+            tooltip: project,
             payload: project,
           ),
       ],
       placeholder: 'Which project should match RR Pocket?',
+      position: position,
     );
     if (picked?.payload case final String project) return project;
     return null;

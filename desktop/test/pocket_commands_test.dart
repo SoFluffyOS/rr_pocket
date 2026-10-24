@@ -519,6 +519,51 @@ void main() {
       expect(host.commands.executed, [cmdForget]);
     });
 
+    test('the command it runs opens where the menu did', () async {
+      await savePairing();
+      host.window.pickPayload = cmdPair;
+      const click = {'x': 900, 'y': 700};
+
+      await commands.menu({'position': click});
+
+      expect(host.window.lastPosition, click);
+      expect(host.commands.executedArgs.single, {'position': click});
+    });
+
+    test('pairing and the project picker open at the click', () async {
+      const click = {'x': 900, 'y': 700};
+      host.window.pickPayload = null;
+
+      await commands.pair({'position': click});
+      expect(host.window.lastPosition, click);
+
+      await savePairing();
+      await addProject('a_app');
+      await addProject('b_app');
+      await commands.pin({'position': click});
+      expect(host.window.lastPosition, click);
+    });
+
+    test('items say more on hover, not in a description', () async {
+      found = [
+        FoundPhone(name: 'Pixel 7', host: '127.0.0.1', port: phone.port)
+      ];
+      await commands.searchNetwork();
+      host.window.pickPayload = null;
+
+      await commands.pair();
+      final pairing = host.window.lastPick;
+      await commands.menu();
+      final menu = host.window.lastPick;
+
+      for (final item in [...pairing, ...menu]) {
+        if (item.isSeparator) continue;
+        expect(item.description, isNull, reason: item.label);
+        expect(item.detail, isNull, reason: item.label);
+        expect(item.tooltip, isNotNull, reason: item.label);
+      }
+    });
+
     test('runs nothing when dismissed', () async {
       host.window.pickPayload = null;
 

@@ -103,7 +103,8 @@ class PocketCommands {
   /// the network, which asks its user; a QR code the phone scans; or the
   /// address and code typed in. Never waits for the network: it offers the
   /// phones found so far, and searches again in the background.
-  Future<void> pair() async {
+  Future<void> pair([Map<String, dynamic>? args]) async {
+    final position = positionOf(args);
     final phones = _found;
     unawaited(searchNetwork());
     final picked = await context.window.showQuickPick(
@@ -111,34 +112,28 @@ class PocketCommands {
         for (final (index, phone) in phones.indexed)
           QuickPickItem(
             label: phone.name,
-            description: phone.host,
-            detail: 'Found on this network: tap Allow on the phone',
+            tooltip: '${phone.host}: found on this network. Tap Allow on '
+                'the phone.',
+            icon: iconPhone,
             payload: 'found:$index',
           ),
-        const QuickPickItem(
-          label: 'Show a QR code',
-          description: 'Scan it with RR Pocket',
-          payload: 'qr',
-        ),
-        const QuickPickItem(
-          label: 'Type the address and code',
-          description: 'As RR Pocket shows them',
-          payload: 'type',
-        ),
+        ..._otherRoutes,
         if (phones.isEmpty)
           const QuickPickItem(
             label: 'Search the network again',
-            description: 'For RR Pocket open on this Wi-Fi',
+            tooltip: 'For RR Pocket open on the same Wi-Fi as this computer.',
+            icon: iconCheck,
             payload: 'search',
           ),
       ],
       placeholder: switch (phones.isEmpty) {
-        true => 'No phone found on this network yet. Pair another way',
+        true => 'No phone found on this network yet',
         false => 'Pair with',
       },
+      position: position,
     );
     final payload = picked?.payload;
-    if (payload == 'search') return _searchThenPair();
+    if (payload == 'search') return _searchThenPair(position);
     if (payload == 'qr') return _pairByQr();
     if (payload == 'type') return _pairTyped();
     if (payload is! String || !payload.startsWith('found:')) return;
@@ -148,35 +143,44 @@ class PocketCommands {
   }
 
   /// The one place pairing waits for the network: the user asked to.
-  Future<void> _searchThenPair() async {
+  Future<void> _searchThenPair(Map<String, int>? position) async {
     final phones = await context.window.withProgress(
       title: 'Looking for RR Pocket on this network',
       task: (_) => searchNetwork(),
     );
     if (phones.isEmpty) {
-      return _offerOtherRoutes(
-        'No RR Pocket found on this network. The network may hide phones '
-        'from each other.',
-      );
+      return _offerOtherRoutes('No RR Pocket found on this network', position);
     }
-    return pair();
+    return pair({if (position != null) 'position': position});
   }
 
-  Future<void> _offerOtherRoutes(String message) async {
+  /// Pairing when the network can't find the phone, each with what it
+  /// takes on hover.
+  static const _otherRoutes = [
+    QuickPickItem(
+      label: 'Show a QR code',
+      tooltip: 'Scan it with RR Pocket (Scan QR code) or the phone\'s '
+          'camera, then tap Allow.',
+      icon: 'qr-code',
+      payload: 'qr',
+    ),
+    QuickPickItem(
+      label: 'Type the address and code',
+      tooltip: 'The address and pairing code RR Pocket shows on its home '
+          'screen.',
+      icon: 'keyboard',
+      payload: 'type',
+    ),
+  ];
+
+  Future<void> _offerOtherRoutes(
+    String message,
+    Map<String, int>? position,
+  ) async {
     final picked = await context.window.showQuickPick(
-      const [
-        QuickPickItem(
-          label: 'Show a QR code',
-          description: 'Scan it with RR Pocket',
-          payload: 'qr',
-        ),
-        QuickPickItem(
-          label: 'Type the address and code',
-          description: 'As RR Pocket shows them',
-          payload: 'type',
-        ),
-      ],
+      _otherRoutes,
       placeholder: message,
+      position: position,
     );
     return switch (picked?.payload) {
       'qr' => _pairByQr(),
@@ -290,7 +294,7 @@ class PocketCommands {
   }
 
   /// Pins a project's Android plugins to the versions RR Pocket carries.
-  Future<void> pin() async {
+  Future<void> pin([Map<String, dynamic>? args]) async {
     final phone = await Phone.tryLoad(config);
     if (phone == null) {
       return _offerPairing(
@@ -298,7 +302,7 @@ class PocketCommands {
       );
     }
     try {
-      final project = await projects.pick();
+      final project = await projects.pick(position: positionOf(args));
       if (project == null) return;
       final written = await context.window.withProgress(
         title: 'Matching RR Pocket\'s plugin versions',
@@ -355,10 +359,21 @@ class PocketCommands {
   /// RR Pocket's menu, from the status bar: the phone, then what can be
   /// done with it. [args] carries where the item was clicked.
   Future<void> menu([Map<String, dynamic>? args]) async {
+    final position = positionOf(args);
     unawaited(searchNetwork());
     final status = _status ?? await _statusFromFile();
-    QuickPickItem action(String command, String label, String icon) =>
-        QuickPickItem(label: label, payload: command, icon: icon);
+    QuickPickItem action(
+      String command,
+      String label,
+      String icon,
+      String tooltip,
+    ) =>
+        QuickPickItem(
+          label: label,
+          payload: command,
+          icon: icon,
+          tooltip: tooltip,
+        );
     final selected = await context.window.showQuickPick(
       [
         QuickPickItem(
@@ -367,35 +382,43 @@ class PocketCommands {
             Unreachable() => 'Not answering',
             NotPaired() => 'Not paired',
           },
-          description: switch (status) {
+          tooltip: switch (status) {
             Reachable(:final address, :final flutterVersion) =>
-              '$address · Flutter $flutterVersion',
-            Unreachable(:final address) => address,
-            NotPaired() => 'Pair once, then run on it from the device list',
+              '$address, Flutter $flutterVersion',
+            Unreachable(:final address, :final reason) =>
+              '$address did not answer: $reason',
+            NotPaired() => 'Pair once, then run on it from the device list.',
           },
           icon: iconPhone,
           enabled: false,
         ),
         const QuickPickItem(label: '', isSeparator: true),
         ...switch (status) {
-          NotPaired() => [action(cmdPair, 'Pair with Phone', iconPair)],
+          NotPaired() => [
+              action(cmdPair, 'Pair with Phone', iconPair,
+                  'Find RR Pocket on this network, or scan or type its code.'),
+            ],
           _ => [
-              action(cmdShowPhone, 'Check Phone Again', iconCheck),
-              action(cmdPin, 'Match Plugin Versions', iconPin),
-              action(cmdPair, 'Pair with Another Phone', iconPair),
-              action(cmdForget, 'Forget This Phone', iconForget),
+              action(cmdShowPhone, 'Check Phone Again', iconCheck,
+                  'Ask the phone for its Flutter version and plugins.'),
+              action(cmdPin, 'Match Plugin Versions', iconPin,
+                  'Pin a project\'s plugins to the versions RR Pocket carries.'),
+              action(cmdPair, 'Pair with Another Phone', iconPair,
+                  'This computer uses one phone at a time.'),
+              action(cmdForget, 'Forget This Phone', iconForget,
+                  'Unpair. The phone keeps its code, so pairing again works.'),
             ],
         },
       ],
       placeholder: pluginName,
-      position: switch (args?['position']) {
-        final Map position => position.cast<String, int>(),
-        _ => null,
-      },
+      position: position,
     );
     final command = selected?.payload;
     if (command is! String) return;
-    await context.commands.executeCommand(command);
+    // The next picker opens where this one did.
+    await context.commands.executeCommand(command, {
+      if (position != null) 'position': position,
+    });
   }
 
   /// Before the phone was asked: paired or not, from the pairing file.
@@ -474,3 +497,11 @@ class PocketCommands {
         title: pluginName,
       );
 }
+
+/// Where a status bar click happened, from a command's arguments, so the
+/// quick picks it leads to open there too.
+Map<String, int>? positionOf(Map<String, dynamic>? args) =>
+    switch (args?['position']) {
+      {'x': final int x, 'y': final int y} => {'x': x, 'y': y},
+      _ => null,
+    };
