@@ -74,6 +74,10 @@ pocket pin              # match RR Pocket's plugin versions
 flutter run -d pocket
 ```
 
+When something doesn't run, `pocket doctor` in the project checks the
+pairing, the Flutter version, the device and the project's plugins, and
+says what to fix.
+
 The same package is a Lumide plugin: Lumide loads it at its next start,
 and RR Pocket shows in its device list after pairing. In Lumide, **RR Pocket:
 Pair with Phone** and **RR Pocket: Match Plugin Versions** do the two steps

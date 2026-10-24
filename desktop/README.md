@@ -40,7 +40,8 @@ Lumide's Plugins pane.
 | `pocket pair` | Pair with the phone and add the `pocket` device to Flutter. Once. Finds the phone on the network (tap Allow on it), or shows a QR code to scan with RR Pocket when it can't. |
 | `pocket pair --qr` | Pair by QR code straight away. |
 | `pocket pair <address> <code>` | Pair with the address and code RR Pocket shows, when the others can't. |
-| `pocket pin` | In a project: pin its Android plugins to RR Pocket's versions, in `pubspec_overrides.yaml`, then `flutter pub get`. |
+| `pocket pin` | In a project: pin its Android plugins to RR Pocket's versions, in `pubspec_overrides.yaml` (a pub workspace's root for a member), then `flutter pub get`. A breaking change (another major version) is left out and named; `pocket pin --all` pins it too. |
+| `pocket doctor` | Check the setup, and the project you're in: the pairing, the phone answering, the Flutter version, the `pocket` device, the project's plugins. Says what to fix for each. |
 | `pocket forget` | Unpair this computer. The phone keeps its code, so pairing again works. |
 
 Then run the project:
@@ -61,6 +62,7 @@ lacks gets a warning: calls to it throw `MissingPluginException`.
 | `rr_pocket.pair` | **RR Pocket: Pair with Phone**: the phones found on the network, a QR code to scan, or the address and code typed in |
 | `rr_pocket.pin` | **RR Pocket: Match Plugin Versions**: for the open project, or the one you pick |
 | `rr_pocket.showPhone` | **RR Pocket: Show Phone**: the phone, its Flutter version and plugins |
+| `rr_pocket.doctor` | **RR Pocket: Check Setup**: `pocket doctor` for the open project, in the RR Pocket output |
 | `rr_pocket.forget` | **RR Pocket: Forget Phone**: unpair, after asking |
 | `rr_pocket.menu` | **RR Pocket: Menu**: all of the above, from the status bar |
 
