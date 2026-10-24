@@ -1,15 +1,17 @@
-"""Attach to RR Pocket on the emulator from a user app, full restart into it, edit, hot reload.
+"""Attaches to RR Pocket from a project, restarts into it, edits, hot reloads.
 
-Usage: drive_attach.py <user_app dir> <vm service url>
+Usage: drive_attach.py <project dir> <vm service url> [device id, default emulator-5554]
 """
 import json
+import os
 import re
 import subprocess
 import sys
 import time
 
 app_dir, url = sys.argv[1], sys.argv[2]
-adb = "/home/simon/Android/Sdk/platform-tools/adb"
+device = sys.argv[3] if len(sys.argv) > 3 else "emulator-5554"
+adb = os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Android/Sdk")), "platform-tools/adb")
 main = f"{app_dir}/lib/main.dart"
 
 
@@ -19,7 +21,7 @@ def logcat(pattern):
 
 
 p = subprocess.Popen(
-    ["flutter", "attach", "-d", "emulator-5554", "--app-id", "io.sofluffy.raccoon.runtime.pocket",
+    ["flutter", "attach", "-d", device, "--app-id", "io.sofluffy.raccoon.runtime.pocket",
      "--debug-url", url, "--machine"],
     cwd=app_dir, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
 
