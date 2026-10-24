@@ -93,7 +93,9 @@ class PocketCommands {
       await statusBar.update(status);
       await _info(
         'Paired with ${status.name} (Flutter ${status.flutterVersion}). '
-        'Pick RR Pocket in the device list, then run.',
+        'Pick RR Pocket in the device list, then run. Flutter reads new '
+        'devices when it starts: if RR Pocket is not in the list, restart '
+        'Lumide.',
       );
     } finally {
       phone.close();
