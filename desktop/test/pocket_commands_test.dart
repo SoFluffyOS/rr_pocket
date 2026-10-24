@@ -510,6 +510,25 @@ void main() {
     });
   });
 
+  group('check setup', () {
+    test('checks without asking, and shows the findings', () async {
+      await savePairing();
+      await addProject('app');
+
+      await commands.doctor();
+
+      final output = host.window.channels.single;
+      expect(output.shown, isTrue);
+      expect('${output.text}', contains('RR Pocket answers'));
+      expect('${output.text}', contains('${temp.path}/app'));
+      // The fake shell's flutter answers nothing, and camera wants a pin.
+      expect('${output.text}', contains('No working `flutter`'));
+      expect('${output.text}', contains('Run `pocket pin`'));
+      expect(messages(MessageType.error).single, startsWith('3 things to fix'));
+      expect(host.window.lastPick, isEmpty);
+    });
+  });
+
   group('forget', () {
     test('forgets the phone once confirmed', () async {
       await savePairing();
@@ -567,6 +586,7 @@ void main() {
       expect(host.window.lastPick.first.enabled, isFalse);
       expect(payloads(), [
         cmdShowPhone,
+        cmdDoctor,
         cmdPin,
         cmdPair,
         cmdForget,

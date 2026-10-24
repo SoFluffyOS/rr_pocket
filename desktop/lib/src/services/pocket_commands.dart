@@ -6,6 +6,7 @@ import 'package:rr_pocket/src/constants.dart';
 import 'package:rr_pocket/src/models/models.dart';
 import 'package:rr_pocket/src/services/computer.dart';
 import 'package:rr_pocket/src/services/discovery.dart';
+import 'package:rr_pocket/src/services/doctor.dart';
 import 'package:rr_pocket/src/services/flutter_device.dart';
 import 'package:rr_pocket/src/services/pair_listener.dart';
 import 'package:rr_pocket/src/services/pair_request.dart';
@@ -426,6 +427,8 @@ class PocketCommands {
           _ => [
               action(cmdShowPhone, 'Check Phone Again', iconCheck,
                   'Ask the phone for its Flutter version and plugins.'),
+              action(cmdDoctor, 'Check Setup', iconDoctor,
+                  'Check the phone, Flutter and this project, and say what to fix.'),
               action(cmdPin, 'Match Plugin Versions', iconPin,
                   'Pin a project\'s plugins to the versions RR Pocket carries.'),
               action(cmdPair, 'Pair with Another Phone', iconPair,
@@ -472,6 +475,46 @@ class PocketCommands {
       address: PhoneAddress(phone.host, phone.port).toString(),
       reason: 'not checked yet',
     );
+  }
+
+  LumideOutputChannel? _output;
+
+  /// `pocket doctor` in Lumide: the setup, and the project holding the open
+  /// file, checked without asking anything; the findings in an output
+  /// panel.
+  Future<void> doctor() async {
+    final project = await projects.current();
+    final checks = await context.window.withProgress(
+      title: 'Checking RR Pocket\'s setup',
+      task: (_) => runDoctor(
+        config: config,
+        flutter: _flutter,
+        project: switch (project) {
+          final path? => Directory(path),
+          null => null,
+        },
+      ),
+    );
+    final output = _output ??= await context.window.createOutputChannel(
+      pluginName,
+    );
+    await output.clear();
+    await output.appendLine(switch (project) {
+      final path? => 'RR Pocket: the setup, and $path',
+      null => 'RR Pocket: the setup',
+    });
+    await output.appendLine(describeDoctor(checks));
+    await output.show();
+    final problems = [
+      for (final check in checks)
+        if (check.state == DoctorState.problem) check,
+    ].length;
+    await switch (problems) {
+      0 => _info('All good: run on RR Pocket from the device list.'),
+      1 => _error('1 thing to fix. What and how are in the RR Pocket output.'),
+      final count => _error(
+          '$count things to fix. What and how are in the RR Pocket output.'),
+    };
   }
 
   Future<void> showPhone() async {

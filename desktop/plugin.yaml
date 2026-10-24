@@ -10,6 +10,7 @@ activation_events:
   - 'onCommand:rr_pocket.showPhone'
   - 'onCommand:rr_pocket.forget'
   - 'onCommand:rr_pocket.menu'
+  - 'onCommand:rr_pocket.doctor'
 
 permissions:
   - fileSystem:
@@ -33,4 +34,7 @@ contributes:
       category: 'RR Pocket'
     - id: rr_pocket.menu
       title: 'RR Pocket: Menu'
+      category: 'RR Pocket'
+    - id: rr_pocket.doctor
+      title: 'RR Pocket: Check Setup'
       category: 'RR Pocket'

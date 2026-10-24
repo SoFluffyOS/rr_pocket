@@ -47,6 +47,7 @@ class RrPocketPlugin extends LumidePlugin {
       cmdShowPhone: (_) => commands.showPhone(),
       cmdForget: (_) => commands.forget(),
       cmdMenu: commands.menu,
+      cmdDoctor: (_) => commands.doctor(),
     };
     await Future.wait([
       for (final MapEntry(key: id, value: callback) in callbacks.entries)

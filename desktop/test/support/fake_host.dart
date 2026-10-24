@@ -139,6 +139,18 @@ class FakeWindow implements LumideWindow {
     return task(progress);
   }
 
+  final channels = <FakeOutput>[];
+
+  @override
+  Future<LumideOutputChannel> createOutputChannel(
+    String name, {
+    int? maxEntries,
+  }) async {
+    final channel = FakeOutput(name);
+    channels.add(channel);
+    return channel;
+  }
+
   final panels = <FakePanel>[];
 
   /// Completes when a panel opens, for tests to act on it.
@@ -170,6 +182,32 @@ class FakeProgress implements LumideProgress {
     _cancel = callback;
     return LumideDisposable(() => _cancel = null);
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakeOutput implements LumideOutputChannel {
+  FakeOutput(this.name);
+
+  final String name;
+  final text = StringBuffer();
+  bool shown = false;
+
+  @override
+  String get id => name;
+
+  @override
+  Future<void> append(String value) async => text.write(value);
+
+  @override
+  Future<void> appendLine(String value) async => text.writeln(value);
+
+  @override
+  Future<void> clear() async => text.clear();
+
+  @override
+  Future<void> show({bool preserveFocus = false}) async => shown = true;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

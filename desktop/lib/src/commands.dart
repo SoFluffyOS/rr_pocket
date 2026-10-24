@@ -10,6 +10,7 @@ const Map<String, String> pocketCommandTitles = {
   cmdShowPhone: 'RR Pocket: Show Phone',
   cmdForget: 'RR Pocket: Forget Phone',
   cmdMenu: 'RR Pocket: Menu',
+  cmdDoctor: 'RR Pocket: Check Setup',
 };
 
 /// Title of a registered command, falling back to its id.

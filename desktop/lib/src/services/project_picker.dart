@@ -50,6 +50,20 @@ class ProjectPicker {
     return null;
   }
 
+  /// The project to check without asking: the one holding the open file,
+  /// or the only one; null when there is no such project.
+  Future<String?> current() async {
+    final projects = await flutterProjects();
+    final active = await _activeDocumentPath();
+    final holding = [
+      for (final project in projects)
+        if (_holds(project, active)) project,
+    ]..sort((a, b) => b.length.compareTo(a.length));
+    if (holding.isNotEmpty) return holding.first;
+    if (projects case [final only]) return only;
+    return null;
+  }
+
   /// Flutter project folders, sorted by path.
   Future<List<String>> flutterProjects() async {
     final folders = await _workspaceFolderPaths();

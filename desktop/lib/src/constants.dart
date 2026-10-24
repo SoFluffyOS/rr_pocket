@@ -16,6 +16,7 @@ const String cmdPin = 'rr_pocket.pin';
 const String cmdShowPhone = 'rr_pocket.showPhone';
 const String cmdForget = 'rr_pocket.forget';
 const String cmdMenu = 'rr_pocket.menu';
+const String cmdDoctor = 'rr_pocket.doctor';
 
 // executables
 const String executableFlutter = 'flutter';
@@ -27,6 +28,7 @@ const String iconPin = 'package';
 const String iconPair = 'link';
 const String iconForget = 'unlink';
 const String iconHelp = 'book-open';
+const String iconDoctor = 'stethoscope';
 const String iconSponsor = 'heart';
 
 // assets, made by tool/make_plugin_icons.py
