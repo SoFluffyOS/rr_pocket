@@ -1,5 +1,13 @@
 import 'dart:async';
 
+import 'package:audio_session/audio_session.dart';
+import 'package:camera/camera.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:record/record.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -81,6 +89,48 @@ final checks = <String, Future<Object?> Function()>{
   'webview_flutter': () async {
     await WebViewController().loadHtmlString('<p>probe</p>');
     return 'loaded';
+  },
+  'permission_handler': () async => (await Permission.camera.status).name,
+  'flutter_local_notifications': () async {
+    final plugin = FlutterLocalNotificationsPlugin();
+    await plugin.initialize(
+      settings: const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      ),
+    );
+    final launch = await plugin.getNotificationAppLaunchDetails();
+    return 'launched by a notification: ${launch?.didNotificationLaunchApp}';
+  },
+  'geolocator': () async =>
+      'service ${await Geolocator.isLocationServiceEnabled()}, '
+      '${(await Geolocator.checkPermission()).name}',
+  'local_auth': () async {
+    final auth = LocalAuthentication();
+    return 'supported ${await auth.isDeviceSupported()}, '
+        '${await auth.getAvailableBiometrics()}';
+  },
+  'camera': () async =>
+      (await availableCameras()).map((c) => c.lensDirection.name).join(', '),
+  'just_audio': () async {
+    final player = AudioPlayer();
+    final duration = await player
+        .setUrl(
+          'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
+        )
+        .timeout(const Duration(seconds: 20));
+    await player.dispose();
+    return duration;
+  },
+  'audio_session': () async {
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration.speech());
+    return 'configured';
+  },
+  'record': () async {
+    final recorder = AudioRecorder();
+    final allowed = await recorder.hasPermission(request: false);
+    await recorder.dispose();
+    return 'permission $allowed';
   },
   'share_plus': () async {
     // Opens the share sheet; answering at all is the check.

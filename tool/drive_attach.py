@@ -15,8 +15,11 @@ adb = os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Android/
 main = f"{app_dir}/lib/main.dart"
 
 # attach compiles before it writes the plugin registrant, so a project's first
-# run would get no plugins; build bundle writes it first.
-if not os.path.exists(f"{app_dir}/.dart_tool/flutter_build/dart_plugin_registrant.dart"):
+# run (or its first after a plugin change) would miss plugins; build bundle
+# writes the registrant first.
+registrant = f"{app_dir}/.dart_tool/flutter_build/dart_plugin_registrant.dart"
+if not os.path.exists(registrant) or (
+        os.path.getmtime(registrant) < os.path.getmtime(f"{app_dir}/pubspec.lock")):
     subprocess.run(["flutter", "build", "bundle"], cwd=app_dir, check=True)
 
 
