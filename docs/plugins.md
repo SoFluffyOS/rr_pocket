@@ -146,6 +146,50 @@ Found on the way:
   carries (the 18, plus jni, jni_flutter, flutter_plugin_android_lifecycle,
   as their `*_android` implementations).
 
+## Tier 2, bundled and checked (2026-10-24)
+
+permission_handler, flutter_local_notifications, geolocator, local_auth,
+camera, just_audio, audio_session and record, so 26 in all. The probe got
+answers from each on the emulator: permission status, notifications
+initialized, location service on, biometrics (none on the emulator), the
+back camera, a 4.0 s clip's duration, the audio session configured, record's
+permission. Prompts and real capture are not tried yet.
+
+What they needed from RR Pocket:
+
+- **`FlutterFragmentActivity`** and an AppCompat DayNight theme (local_auth's
+  prompt is a fragment). One theme now, no values-night copy.
+- **Core library desugaring** (flutter_local_notifications), and its three
+  receivers: scheduled, after reboot, actions. No exact alarms: those need a
+  Play declaration.
+- **Compile SDK 37**: every permission_handler_android 14 needs it, and
+  permission_handler 13 needs 14. AGP 9.1 is tested to 36, so
+  `gradle.properties` suppresses its check for 37.
+- **Permissions** a project may ask for: camera, microphone, fine and coarse
+  location, notifications, biometrics, boot completed. None needs a Play
+  declaration; camerax's uncapped READ_EXTERNAL_STORAGE is capped at 32.
+- **Optional hardware.** These permissions imply camera, location and
+  microphone hardware, and camerax requires `camera.any`; Play would hide
+  RR Pocket from devices without them. All four are `required="false"`.
+
+## Size, after trimming
+
+| | arm64 APK |
+|---|---|
+| 2 plugins | 82.9 MB |
+| Tier 1, 18 plugins | 94.3 MB |
+| Tier 2, 26 plugins | 98.7 MB |
+| 26 plugins, without the Vulkan validation layer | **84.2 MB** |
+
+The debug engine's APK carries `libVkLayer_khronos_validation.so`, 14.5 MB
+on arm64, which loads only when Vulkan validation is switched on in the
+manifest. RR Pocket never switches it on, so Gradle leaves it out. Not yet
+tried on an arm64 phone (the emulator draws with GLES).
+
+What's left: `libflutter.so` 37.0 MB, RR Pocket's own kernel 26.9 MB
+(about 6 MB of it plugins' Dart sides, through the registrant, which RR
+Pocket never runs), dex 12.8 MB.
+
 ## Open
 
 - `sqlite3` (3.2M) and drift (1.7M) now use build hooks that download a

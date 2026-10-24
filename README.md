@@ -17,8 +17,8 @@ The spike passed on the Android emulator (Flutter 3.47.7, 2026-10-24):
 
 - A project with no `android/` folder runs in the prebuilt app. Launch
   579-821 ms, hot reload 173-211 ms.
-- All 18 plugins the app carries answer from such a project
-  (`docs/plugins.md`).
+- All 26 plugins the app carries answer from such a project, with no change
+  to its code (`docs/plugins.md`). The arm64 APK is 84.2 MB.
 - **The app ships non-debuggable, as Play requires, and the debug engine
   still runs.**
 
