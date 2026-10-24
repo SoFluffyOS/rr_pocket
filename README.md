@@ -26,11 +26,13 @@ Works on the Android emulator (Flutter 3.47.7, 2026-10-24):
 - **The app ships non-debuggable, as Play requires, and the debug engine
   still runs.**
 
-On a Pixel 7 (Android 16, 2026-10-24): run from Lumide over real Wi-Fi;
-the probe's 30 checks answer, with real biometrics, both cameras and
-sensors; hot restart 2.1 s, hot reload 0.65 s (over adb, as the probe
-drives it). Pairing found on the network, by QR link and typed; a project
-that throws at startup shows its error instead of freezing.
+On a Pixel 7 (Android 16, 2026-10-25): run from Lumide over real Wi-Fi.
+`flutter run -d pocket` of the probe, every plugin in one project, through
+a USB port forward: launched in 11.0 s, its 30 checks answer (real
+biometrics, both cameras, sensors), hot reload 0.40 s, hot restart 2.7 s
+(a 116 MB kernel), quit 0.16 s; the trails demo hot restarts in 1.3 s.
+Pairing found on the network, by QR link and typed; a project that throws
+at startup shows its error instead of freezing.
 
 ## Build
 
