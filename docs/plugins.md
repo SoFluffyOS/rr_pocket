@@ -46,6 +46,9 @@ shared app.
 | geolocator, geocoding | MethodChannel, Pigeon | 2.9M, 0.75M | fine and coarse location; **never background** (Play declaration) | play-services-location | 2 |
 | local_auth | Pigeon | 1.8M | USE_BIOMETRIC | **MainActivity must become FlutterFragmentActivity** | 2 |
 | mobile_scanner | MethodChannel | 2.0M | CAMERA | bundled ML Kit model, several MB (unverified) | 2 |
+| qr_code_scanner_plus | platform view (ZXing) | 87K | CAMERA | zxing-android-embedded + core, under 1 MB | 2, in |
+| isar_community_flutter_libs | FFI, `libisar.so` per ABI | 114K | | 1.1 MB per device | 1, in |
+| gms_check | MethodChannel | 6K | | play-services-base, already there | 1, in |
 | camera | Pigeon ProxyApi (CameraX) | 0.97M | CAMERA, RECORD_AUDIO | CameraX, Guava; **32 releases a year, highest skew risk** | 2 |
 | just_audio + audio_session, audioplayers | MethodChannel | 1.5M, 1.5M | | media3 | 2 |
 | record, speech_to_text | MethodChannel | 1.45M, 0.8M | RECORD_AUDIO | | 2 |
@@ -58,7 +61,8 @@ shared app.
 | in_app_purchase, purchases_flutter, google_mobile_ads, flutter_stripe | | 0.5-1.0M | | billing is tied to the package; AdMob needs an app id | skip |
 
 Pure Dart, nothing to bundle: flutter_native_splash, cached_network_image
-(needs sqflite and path_provider), hive, haptics (`HapticFeedback`).
+(needs sqflite and path_provider), hive, hive_ce and hive_ce_flutter (need
+path_provider), easy_hive (on hive_ce), haptics (`HapticFeedback`).
 
 ## Expo Go as the yardstick
 
@@ -171,6 +175,31 @@ What they needed from RR Pocket:
 - **Optional hardware.** These permissions imply camera, location and
   microphone hardware, and camerax requires `camera.any`; Play would hide
   RR Pocket from devices without them. All four are `required="false"`.
+
+## Added after the first bundle (2026-10-24)
+
+29 plugins now, from 26.
+
+- **qr_code_scanner_plus 2.3.2**: RR Pocket's own scanner for pairing,
+  where Google's code scanner (Play services) can't run. Every plugin in the
+  app is one projects can use, so it is bundled for them too.
+- **isar_community_flutter_libs 3.4.1**: the native side of Isar Community,
+  only `libisar.so` and an empty plugin class. The Dart side opens the
+  library by name, so a project's Isar finds RR Pocket's. It checks the
+  library's version against its own and refuses any other, so `pocket pin`
+  matters here: pinning `isar_community_flutter_libs` pins `isar_community`
+  with it (an exact dependency). The library comes for four ABIs; Play
+  serves one, 1.1 MB on arm64. The arm64 APK grew 3.4 MB, for three.
+- **gms_check 1.1.0**: one MethodChannel call to Play services'
+  `GoogleApiAvailability`. Its play-services-base came with the code
+  scanner already.
+- **hive_ce, hive_ce_flutter, easy_hive**: pure Dart on path_provider,
+  nothing to bundle; the probe opens a Hive box to show it.
+
+The probe calls each: `checkGmsAvailability()`, `Isar.initializeIsarCore()`
+(it loads `libisar.so` and checks its version; a failure counts as
+MISSING), and a Hive box written and read back. Built; not yet probed on a
+phone.
 
 ## Size, after trimming
 

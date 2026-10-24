@@ -20,8 +20,10 @@ dependencies:
   flutter_local_notifications: ^22.3.2
   flutter_secure_storage: ^11.2.0
   geolocator: ^14.1.2
+  gms_check: ^1.1.0
   image_picker: ^1.2.4
   in_app_review: ^2.0.12
+  isar_community_flutter_libs: ^3.4.1
   just_audio: ^0.10.6
   local_auth: ^3.0.2
   package_info_plus: ^10.2.2

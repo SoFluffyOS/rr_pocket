@@ -37,6 +37,12 @@ dependencies:
   audio_session: ^0.2.4
   record: ^7.1.2
   qr_code_scanner_plus: ^2.3.2
+  gms_check: ^1.1.0
+  isar_community: ^3.4.1
+  isar_community_flutter_libs: ^3.4.1
+  # Pure Dart on path_provider: checked, not bundled.
+  hive_ce: ^2.22.0
+  hive_ce_flutter: ^2.5.0
 
 dev_dependencies:
   flutter_lints: ^6.0.0

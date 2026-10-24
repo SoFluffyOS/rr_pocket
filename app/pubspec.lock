@@ -528,6 +528,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.5"
+  gms_check:
+    dependency: "direct main"
+    description:
+      name: gms_check
+      sha256: c4d3bbe240273aaa8d5535561e059dfceec73d3281a5155812c9901e46e27ef3
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
   gsettings:
     dependency: transitive
     description:
@@ -656,6 +664,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.20.3"
+  isar_community:
+    dependency: transitive
+    description:
+      name: isar_community
+      sha256: "5046967047825b8699b66ad41f29c68c4eaefd54e236f6dea9e90e0b8063442a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.4.1"
+  isar_community_flutter_libs:
+    dependency: "direct main"
+    description:
+      name: isar_community_flutter_libs
+      sha256: "541b07c0de7b5bd28e76cafc9fb56fac521186937bf309231572bf16551ef2f1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.4.1"
   jni:
     dependency: transitive
     description:
@@ -680,6 +704,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.0"
+  js:
+    dependency: transitive
+    description:
+      name: js
+      sha256: "53385261521cc4a0c4658fd0ad07a7d14591cf8fc33abbceae306ddb974888dc"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.7.2"
   just_audio:
     dependency: "direct main"
     description:

@@ -16,6 +16,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:gms_check/gms_check.dart';
+import 'package:hive_ce_flutter/hive_ce_flutter.dart';
+import 'package:isar_community/isar.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -53,7 +56,25 @@ final checks = <String, Future<Object?> Function()>{
     await storage.write(key: 'probe', value: 'secret');
     return storage.read(key: 'probe');
   },
+  'gms_check': () => GmsCheck().checkGmsAvailability(),
+  // Pure Dart on path_provider, so not bundled: this checks it works as is.
+  'hive_ce_flutter': () async {
+    await Hive.initFlutter('rr_probe');
+    final box = await Hive.openBox<String>('probe');
+    await box.put('probe', 'kept');
+    return box.get('probe');
+  },
   'image_picker': () async => (await ImagePicker().retrieveLostData()).isEmpty,
+  // Isar loads libisar.so itself, so a missing or mismatched library is an
+  // IsarError, not a MissingPluginException; the probe counts it as missing.
+  'isar_community_flutter_libs': () async {
+    try {
+      await Isar.initializeIsarCore();
+    } on IsarError catch (e) {
+      throw MissingPluginException('$e');
+    }
+    return 'core ${Isar.version}';
+  },
   'in_app_review': () => InAppReview.instance.isAvailable(),
   'package_info_plus': () async =>
       (await PackageInfo.fromPlatform()).packageName,
