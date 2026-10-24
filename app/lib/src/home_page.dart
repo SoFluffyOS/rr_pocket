@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:rr_pocket/src/allow_prompt.dart';
 import 'package:rr_pocket/src/build_card.dart';
+import 'package:rr_pocket/src/footer_links.dart';
 import 'package:rr_pocket/src/pairing_card.dart';
 import 'package:rr_pocket/src/pairing_flow.dart';
 import 'package:rr_pocket/src/qr_scanner_page.dart';
@@ -80,6 +81,8 @@ class _HomePageState extends State<HomePage> {
                     textAlign: TextAlign.center,
                     style: theme.typography.base2.copyWith(color: theme.muted),
                   ),
+                  Spacing.v8,
+                  const FooterLinks(),
                 ],
               ),
             ),

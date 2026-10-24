@@ -26,6 +26,12 @@ const String iconCheck = 'refresh-cw';
 const String iconPin = 'package';
 const String iconPair = 'link';
 const String iconForget = 'unlink';
+const String iconHelp = 'book-open';
+const String iconSponsor = 'heart';
+
+// links; the repo goes public under SoFluffyOS
+const String helpUrl = 'https://github.com/SoFluffyOS/rr_pocket#readme';
+const String sponsorUrl = 'https://github.com/sponsors/simonpham';
 
 /// The first line of the pubspec_overrides.yaml that `pocket pin` writes, so
 /// it replaces only its own. `tool/pin_plugins.py` writes the same.

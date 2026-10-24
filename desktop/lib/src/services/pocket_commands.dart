@@ -409,12 +409,29 @@ class PocketCommands {
                   'Unpair. The phone keeps its code, so pairing again works.'),
             ],
         },
+        const QuickPickItem(label: '', isSeparator: true),
+        const QuickPickItem(
+          label: 'Help',
+          payload: helpUrl,
+          icon: iconHelp,
+          tooltip: 'How RR Pocket works, in its README.',
+        ),
+        const QuickPickItem(
+          label: 'Sponsor RR Pocket',
+          payload: sponsorUrl,
+          icon: iconSponsor,
+          tooltip: 'Support RR Pocket on GitHub Sponsors.',
+        ),
       ],
       placeholder: pluginName,
       position: position,
     );
     final command = selected?.payload;
     if (command is! String) return;
+    if (command.startsWith('https://')) {
+      await context.window.openUrl(command);
+      return;
+    }
     // The next picker opens where this one did.
     await context.commands.executeCommand(command, {
       if (position != null) 'position': position,

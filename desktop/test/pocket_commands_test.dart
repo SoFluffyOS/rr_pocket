@@ -500,7 +500,7 @@ void main() {
       await commands.menu();
 
       expect(host.window.lastPick.first.label, 'Not paired');
-      expect(payloads(), [cmdPair]);
+      expect(payloads(), [cmdPair, helpUrl, sponsorUrl]);
       expect(host.commands.executed, [cmdPair]);
     });
 
@@ -515,7 +515,14 @@ void main() {
 
       expect(host.window.lastPick.first.label, 'Test Phone');
       expect(host.window.lastPick.first.enabled, isFalse);
-      expect(payloads(), [cmdShowPhone, cmdPin, cmdPair, cmdForget]);
+      expect(payloads(), [
+        cmdShowPhone,
+        cmdPin,
+        cmdPair,
+        cmdForget,
+        helpUrl,
+        sponsorUrl,
+      ]);
       expect(host.commands.executed, [cmdForget]);
     });
 
@@ -562,6 +569,15 @@ void main() {
         expect(item.detail, isNull, reason: item.label);
         expect(item.tooltip, isNotNull, reason: item.label);
       }
+    });
+
+    test('help and sponsoring open in the browser', () async {
+      host.window.pickPayload = sponsorUrl;
+
+      await commands.menu();
+
+      expect(host.window.opened, [sponsorUrl]);
+      expect(host.commands.executed, isEmpty);
     });
 
     test('runs nothing when dismissed', () async {

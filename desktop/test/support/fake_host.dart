@@ -116,6 +116,14 @@ class FakeWindow implements LumideWindow {
     return null;
   }
 
+  final opened = <String>[];
+
+  @override
+  Future<bool> openUrl(String url) async {
+    opened.add(url);
+    return true;
+  }
+
   /// The progress shown last, to cancel it from a test.
   FakeProgress? lastProgress;
 
