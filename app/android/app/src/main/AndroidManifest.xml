@@ -24,7 +24,10 @@
     <application
         android:label="RR Pocket"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
+        <!-- Plain HTTP: RR Pocket calls its own VM service on 127.0.0.1, and
+             projects in development call their own dev servers. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

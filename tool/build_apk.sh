@@ -22,7 +22,10 @@ if [[ -z "${JAVA_HOME:-}" && -d "$HOME/.local/share/jdk" ]]; then
 fi
 export ANDROID_HOME="$sdk" JAVA_HOME PATH="${JAVA_HOME:+$JAVA_HOME/bin:}$PATH"
 
-flutter_version="$(flutter --version --machine | python3 -I -c 'import json, sys; print(json.load(sys.stdin)["frameworkVersion"])')"
+versions="$(flutter --version --machine)"
+flutter_version="$(python3 -I -c 'import json, sys; print(json.load(sys.stdin)["frameworkVersion"])' <<<"$versions")"
+engine_revision="$(python3 -I -c 'import json, sys; print(json.load(sys.stdin)["engineRevision"])' <<<"$versions")"
+export RR_FLUTTER_VERSION="$flutter_version" RR_ENGINE_REVISION="$engine_revision"
 
 cd "$root/app"
 flutter build apk --debug --target-platform "android-$abi" \

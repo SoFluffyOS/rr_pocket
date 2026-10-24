@@ -24,6 +24,13 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // What a project's SDK must match; tool/build_apk.sh sets them.
+        resValue("string", "rr_flutter_version", System.getenv("RR_FLUTTER_VERSION") ?: "unknown")
+        resValue("string", "rr_engine_revision", System.getenv("RR_ENGINE_REVISION") ?: "unknown")
+    }
+
+    buildFeatures {
+        resValues = true
     }
 
     // The debug engine's Vulkan validation layer (14.5 MB on arm64) loads only
