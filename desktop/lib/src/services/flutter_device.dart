@@ -49,6 +49,29 @@ Future<void> registerDevice(RunFlutter flutter, List<String> helper) async {
   }
 }
 
+/// Registers the `pocket` device unless it already is, with [helper];
+/// returns whether it had to. A running `flutter daemon` reads custom devices
+/// only when it starts, but pings them on every poll: registered before
+/// pairing, the device appears as soon as pairing makes its ping succeed.
+Future<bool> ensureDeviceRegistered(
+  RunFlutter flutter,
+  List<String> helper,
+  PocketConfig config, {
+  bool force = false,
+}) async {
+  final record = config.registeredFile;
+  final wanted = jsonEncode(helper);
+  if (!force &&
+      await record.exists() &&
+      await record.readAsString() == wanted) {
+    return false;
+  }
+  await registerDevice(flutter, helper);
+  await record.parent.create(recursive: true);
+  await record.writeAsString(wanted);
+  return true;
+}
+
 /// How Flutter calls this running copy of the tool back (see
 /// [helperCommand]), with [dart] or the one running this.
 Future<List<String>> currentHelperCommand({String? dart}) async {

@@ -79,7 +79,12 @@ class PocketCli {
       'Paired with ${hello['name']} at $parsed '
       '(Flutter ${hello['flutterVersion']}).',
     );
-    await registerDevice(runFlutterProcess, await currentHelperCommand());
+    await ensureDeviceRegistered(
+      runFlutterProcess,
+      await currentHelperCommand(),
+      config,
+      force: true,
+    );
     stdout.writeln('Run a project on it with: flutter run -d $deviceId');
     return 0;
   }

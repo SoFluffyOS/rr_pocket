@@ -34,6 +34,7 @@ class RrPocketPlugin extends LumidePlugin {
 
     await _registerCommands(context);
     unawaited(_refreshQuietly());
+    unawaited(_registerDeviceQuietly());
     logService.info('RR Pocket plugin ready.');
   }
 
@@ -69,6 +70,20 @@ class RrPocketPlugin extends LumidePlugin {
       }
     } catch (error, stackTrace) {
       logService.error('Could not check the phone', error, stackTrace);
+    }
+  }
+
+  /// The `pocket` device, registered before any pairing, so Lumide's
+  /// Flutter daemon knows it from its next start and lists it as soon as a
+  /// phone is paired.
+  Future<void> _registerDeviceQuietly() async {
+    try {
+      if (await commands.ensureRegistered()) {
+        logService.info('Registered the pocket device with Flutter.');
+      }
+    } catch (error, stackTrace) {
+      logService.error(
+          'Could not register the pocket device', error, stackTrace);
     }
   }
 

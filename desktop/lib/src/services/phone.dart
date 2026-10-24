@@ -41,6 +41,10 @@ class PocketConfig {
   /// Why the last install failed, left for `run` to read.
   File get installFailedFile => _file('install_failed');
 
+  /// The command the `pocket` device was last registered with, so it is
+  /// registered again only when that changes.
+  File get registeredFile => _file('device_registered.json');
+
   File _file(String name) => File('$directory${Platform.pathSeparator}$name');
 }
 

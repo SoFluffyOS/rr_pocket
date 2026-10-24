@@ -82,6 +82,43 @@ void main() {
           startsWith('Paired with Test Phone'));
     });
 
+    test('pairing a registered device runs no flutter and needs no restart',
+        () async {
+      expect(await commands.ensureRegistered(), isTrue);
+      final registrations = host.shell.ran.length;
+      host.window.inputs.addAll(['127.0.0.1:${phone.port}', phone.code]);
+
+      await commands.pair();
+
+      expect(host.shell.ran.length, registrations);
+      expect(messages(MessageType.info).single, isNot(contains('restart')));
+    });
+
+    test('a first pairing that registers says to restart if not listed',
+        () async {
+      host.window.inputs.addAll(['127.0.0.1:${phone.port}', phone.code]);
+
+      await commands.pair();
+
+      expect(messages(MessageType.info).single, contains('restart Lumide'));
+    });
+
+    test('registers again when the command Flutter should run changes',
+        () async {
+      var helper = ['dart', '/old/pocket.dart'];
+      final changing = PocketCommands(
+        host,
+        config: config,
+        statusBar: StatusBarService(host),
+        projects: ProjectPicker(host),
+        helperCommand: () async => helper,
+      );
+      expect(await changing.ensureRegistered(), isTrue);
+      expect(await changing.ensureRegistered(), isFalse);
+      helper = ['dart', '/new/pocket.dart'];
+      expect(await changing.ensureRegistered(), isTrue);
+    });
+
     test('stops at an address that is not one', () async {
       host.window.inputs.addAll(['http://phone', '1234']);
 

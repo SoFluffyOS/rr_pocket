@@ -85,17 +85,21 @@ class PocketCommands {
           final hello = await phone.hello().timeout(helloTimeout);
           await phone.save(config);
           _pairings++;
-          await registerDevice(_flutter, await _deviceHelper());
-          return hello;
+          final registered = await ensureRegistered();
+          return (hello: hello, registered: registered);
         },
       );
-      final status = Reachable.fromHello(address.toString(), hello);
+      final status = Reachable.fromHello(address.toString(), hello.hello);
       await statusBar.update(status);
+      // Registered only now: Lumide's running Flutter daemon never read it.
+      final restart = switch (hello.registered) {
+        true => ' If RR Pocket is not in the device list, restart Lumide: '
+            'Flutter reads new devices when it starts.',
+        false => '',
+      };
       await _info(
         'Paired with ${status.name} (Flutter ${status.flutterVersion}). '
-        'Pick RR Pocket in the device list, then run. Flutter reads new '
-        'devices when it starts: if RR Pocket is not in the list, restart '
-        'Lumide.',
+        'Pick RR Pocket in the device list, then run.$restart',
       );
     } finally {
       phone.close();
@@ -167,6 +171,12 @@ class PocketCommands {
     );
     if (confirmed) await pair();
   }
+
+  /// Registers the `pocket` device with Flutter unless it already is;
+  /// returns whether it had to. The plugin does this when it starts, so
+  /// pairing later needs no restart.
+  Future<bool> ensureRegistered() async =>
+      ensureDeviceRegistered(_flutter, await _deviceHelper(), config);
 
   /// Lumide may run this plugin on a Dart SDK of its own, so Flutter calls
   /// the tool back with the Dart of the Flutter SDK it registered with.
