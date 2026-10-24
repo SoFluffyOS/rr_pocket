@@ -21,6 +21,9 @@ const String cmdDoctor = 'rr_pocket.doctor';
 // executables
 const String executableFlutter = 'flutter';
 
+/// Makes the pairing file private on macOS and Linux.
+const String executableChmod = 'chmod';
+
 // icons
 const String iconPhone = 'smartphone';
 const String iconCheck = 'refresh-cw';

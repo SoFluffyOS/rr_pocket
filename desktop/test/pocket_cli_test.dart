@@ -119,6 +119,17 @@ void main() {
       expect(config.registeredFile.existsSync(), isTrue);
     });
 
+    test('keeps the code readable by this account only', () async {
+      // An old pairing file, readable by everyone.
+      config.deviceFile.writeAsStringSync('{}');
+      await Process.run('chmod', ['644', config.deviceFile.path]);
+
+      expect(await pairing(['pair', '127.0.0.1:${phone.port}', phone.code]), 0);
+
+      expect(config.deviceFile.statSync().modeString(), 'rw-------');
+      expect(File('${config.deviceFile.path}.tmp').existsSync(), isFalse);
+    }, testOn: '!windows');
+
     test('shows a QR code when no phone is found, and pairs who scans it',
         () async {
       final paired = pairing(['pair']);

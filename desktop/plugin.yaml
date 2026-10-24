@@ -17,6 +17,7 @@ permissions:
       - '${workspace}/**'
   - shell:
       - flutter
+      - chmod
 
 contributes:
   commands:

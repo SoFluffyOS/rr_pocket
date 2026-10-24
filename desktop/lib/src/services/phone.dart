@@ -24,6 +24,18 @@ String describePhoneError(Object error) => switch (error) {
       _ => '$error',
     };
 
+/// Makes [file] readable and writable by this account only. On Windows the
+/// pairing lives under the user's own `%APPDATA%`, private already.
+Future<void> makePrivate(File file) async {
+  if (Platform.isWindows) return;
+  final result = await Process.run(executableChmod, ['600', file.path]);
+  if (result.exitCode != 0) {
+    throw PocketException(
+      'could not make ${file.path} private: ${result.stderr}'.trim(),
+    );
+  }
+}
+
 /// Where the pairing is kept: `~/.config/rr_pocket` (`%APPDATA%\rr_pocket`
 /// on Windows), shared by the `pocket` command and the Lumide plugin.
 class PocketConfig {
@@ -86,12 +98,19 @@ class Phone {
     );
   }
 
+  /// Readable by this account only: the code lets whoever has it run code
+  /// on the phone. It is written beside, made private while still empty,
+  /// then moved into place, so no other account can read it even briefly.
   Future<void> save(PocketConfig config) async {
     final file = config.deviceFile;
     await file.parent.create(recursive: true);
-    await file.writeAsString(
+    final draft = File('${file.path}.tmp');
+    await draft.writeAsString('');
+    await makePrivate(draft);
+    await draft.writeAsString(
       jsonEncode({'host': host, 'port': port, 'code': code}),
     );
+    await draft.rename(file.path);
   }
 
   Future<Map<String, Object?>> hello() => call('GET', '/hello');

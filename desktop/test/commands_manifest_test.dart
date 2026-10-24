@@ -37,7 +37,7 @@ void main() {
         for (final permission in manifest.permissions)
           if (permission case ShellPermission(:final command)) command,
       ],
-      [executableFlutter],
+      [executableFlutter, executableChmod],
     );
   });
 
