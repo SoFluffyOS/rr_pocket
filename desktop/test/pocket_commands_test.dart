@@ -26,7 +26,7 @@ void main() {
     commands = PocketCommands(
       host,
       config: config,
-      statusBar: StatusBarService(host),
+      statusBar: StatusBarService(host, icon: () async => '/icon.svg'),
       projects: ProjectPicker(host),
       helperCommand: () async => ['dart', '/src/bin/pocket.dart'],
       discover: () async => found,
@@ -86,7 +86,7 @@ void main() {
       final added = host.shell.ran.last.command.last;
       final device = jsonDecode(added.substring('--json='.length)) as Map;
       expect(device['ping'], ['dart', '/src/bin/pocket.dart', 'ping']);
-      expect(host.statusBar.items.values.single.$1, 'Test Phone');
+      expect(host.statusBar.items.values.single.$2, contains('Test Phone'));
       expect(messages(MessageType.info).single,
           startsWith('Paired with Test Phone'));
     });
@@ -118,7 +118,7 @@ void main() {
       final changing = PocketCommands(
         host,
         config: config,
-        statusBar: StatusBarService(host),
+        statusBar: StatusBarService(host, icon: () async => '/icon.svg'),
         projects: ProjectPicker(host),
         helperCommand: () async => helper,
       );
@@ -151,7 +151,7 @@ void main() {
       final waiting = PocketCommands(
         host,
         config: config,
-        statusBar: StatusBarService(host),
+        statusBar: StatusBarService(host, icon: () async => '/icon.svg'),
         projects: ProjectPicker(host),
         discover: () => hanging.future,
       );
@@ -434,7 +434,8 @@ void main() {
             contains('did not answer'),
             contains('Pair again?'),
           ));
-      expect(host.statusBar.items.values.single.$1, 'RR Pocket');
+      expect(host.statusBar.items.values.single.$2, contains('did not answer'));
+      expect(host.statusBar.looks.values.single.color, colorNotAnswering);
     });
 
     test('a refresh that started before a pairing leaves the status to it',
@@ -449,7 +450,7 @@ void main() {
 
       await stale;
 
-      expect(host.statusBar.items.values.single.$1, 'Test Phone');
+      expect(host.statusBar.items.values.single.$2, contains('Test Phone'));
     }, timeout: const Timeout(Duration(seconds: 30)));
 
     test('offers to pair before pairing, the status item saying so', () async {
@@ -457,6 +458,35 @@ void main() {
 
       expect(host.window.confirmations.single, contains('not paired yet'));
       expect(host.statusBar.items.values.single.$2, contains('not paired'));
+    });
+  });
+
+  group('status bar', () {
+    test('shows the R² mark alone, the details on hover', () async {
+      await savePairing();
+
+      await commands.refresh();
+
+      expect(host.statusBar.items.values.single.$1, isEmpty);
+      expect(host.statusBar.items.values.single.$2, contains('Test Phone'));
+      expect(host.statusBar.looks.values.single, (
+        color: null,
+        iconPath: '/icon.svg',
+      ));
+    });
+
+    test('turns amber when the phone stops answering, and back', () async {
+      await savePairing();
+      await commands.refresh();
+      await phone.close();
+
+      await commands.refresh();
+      expect(host.statusBar.looks.values.single.color, colorNotAnswering);
+
+      phone = await FakePhone.start(plugins: {'camera': '0.12.1'});
+      await savePairing();
+      await commands.refresh();
+      expect(host.statusBar.looks.values.single.color, isNull);
     });
   });
 

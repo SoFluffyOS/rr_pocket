@@ -5,6 +5,7 @@ export 'log_service.dart';
 export 'pair_listener.dart';
 export 'pair_request.dart';
 export 'phone.dart';
+export 'plugin_files.dart';
 export 'pocket_cli.dart';
 export 'pocket_commands.dart';
 export 'project_files.dart';

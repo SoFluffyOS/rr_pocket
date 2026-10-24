@@ -1,41 +1,58 @@
 import 'package:lumide_api/lumide_api.dart';
 import 'package:rr_pocket/src/constants.dart';
 import 'package:rr_pocket/src/models/models.dart';
+import 'package:rr_pocket/src/services/plugin_files.dart';
 
-/// The RR Pocket item in the status bar: the paired phone, whether it
-/// answered, or that none is paired. Opens RR Pocket's menu on click.
+/// The RR Pocket item in the status bar: the R² mark alone, its tooltip
+/// saying which phone and whether it answered. Amber when the paired phone
+/// did not answer. Opens RR Pocket's menu on click.
 class StatusBarService {
-  StatusBarService(this.context);
+  StatusBarService(this.context, {Future<String?> Function()? icon})
+      : _icon = icon ?? (() => pluginFile(assetIconSolid));
 
   final LumideContext context;
+  final Future<String?> Function() _icon;
 
   static const String _itemId = 'rr_pocket.status';
 
   bool _created = false;
   bool _disposed = false;
 
+  /// The colour the item was created with, null for the theme's.
+  String? _color;
+
   Future<void> update(PhoneStatus status) async {
     if (_disposed) return;
-    final (text, tooltip) = switch (status) {
-      NotPaired() => (pluginName, 'RR Pocket: not paired. Click to pair.'),
-      Reachable(:final name, :final summary) => (name, summary),
+    final (tooltip, color) = switch (status) {
+      NotPaired() => ('RR Pocket: not paired. Click to pair.', null),
+      Reachable(:final summary) => ('RR Pocket: $summary', null),
       Unreachable(:final address, :final reason) => (
-          pluginName,
           'RR Pocket at $address did not answer: $reason',
+          colorNotAnswering,
         ),
     };
+    // An update can't give an item back the theme's colour, so a change of
+    // colour makes the item again.
+    if (_created && color != _color) await _hide();
     if (!_created) {
       _created = true;
       try {
+        final iconPath = await _icon();
         await context.statusBar.createItem(
           id: _itemId,
-          text: text,
+          text: '',
           tooltip: tooltip,
           command: cmdMenu,
-          iconName: iconPhone,
+          color: color,
+          iconPath: iconPath,
+          iconName: switch (iconPath) {
+            null => iconPhone,
+            _ => null,
+          },
           alignment: 'right',
           priority: 96,
         );
+        _color = color;
       } catch (_) {
         _created = false;
         rethrow;
@@ -44,7 +61,6 @@ class StatusBarService {
     }
     await context.statusBar.updateItem(
       _itemId,
-      text: text,
       tooltip: tooltip,
       command: cmdMenu,
     );

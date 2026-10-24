@@ -29,6 +29,14 @@ const String iconForget = 'unlink';
 const String iconHelp = 'book-open';
 const String iconSponsor = 'heart';
 
+// assets, made by tool/make_plugin_icons.py
+const String assetIconSolid = 'assets/icon_rr_pocket_solid.svg';
+const String assetIcon = 'assets/icon_rr_pocket.svg';
+
+// the status bar's colour when the paired phone does not answer: Lumide's
+// warning amber
+const String colorNotAnswering = '#E6B450';
+
 // links; the repo goes public under SoFluffyOS
 const String helpUrl = 'https://github.com/SoFluffyOS/rr_pocket#readme';
 const String sponsorUrl = 'https://github.com/sponsors/simonpham';

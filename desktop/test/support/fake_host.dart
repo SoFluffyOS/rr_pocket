@@ -252,6 +252,9 @@ class FakeStatusBar implements LumideStatusBar {
   /// The item's text and tooltip by id.
   final items = <String, (String, String?)>{};
 
+  /// The item's colour and icon path by id, as created.
+  final looks = <String, ({String? color, String? iconPath})>{};
+
   @override
   Future<void> createItem({
     required String id,
@@ -263,8 +266,10 @@ class FakeStatusBar implements LumideStatusBar {
     String? iconPath,
     String alignment = 'right',
     int priority = 0,
-  }) async =>
-      items[id] = (text, tooltip);
+  }) async {
+    items[id] = (text, tooltip);
+    looks[id] = (color: color, iconPath: iconPath);
+  }
 
   @override
   Future<void> updateItem(
@@ -276,7 +281,7 @@ class FakeStatusBar implements LumideStatusBar {
     String? iconName,
     String? iconPath,
   }) async =>
-      items[id] = (text ?? '', tooltip);
+      items[id] = (text ?? items[id]?.$1 ?? '', tooltip ?? items[id]?.$2);
 
   @override
   Future<void> disposeItem(String id) async => items.remove(id);
