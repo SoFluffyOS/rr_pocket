@@ -1,5 +1,6 @@
 export 'computer.dart';
 export 'discovery.dart';
+export 'doctor.dart';
 export 'flutter_device.dart';
 export 'log_service.dart';
 export 'pair_listener.dart';

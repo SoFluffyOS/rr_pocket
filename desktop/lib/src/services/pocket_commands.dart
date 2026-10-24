@@ -347,8 +347,9 @@ class PocketCommands {
       };
       await _info(switch (written.pins.length) {
         0 => 'Nothing pinned.$skipped',
-        final count => 'Pinned $count plugins in ${written.file.path} and ran '
-            'pub get.$skipped',
+        final count =>
+          'Pinned ${plugins(count)} in ${written.file.path} and ran '
+              'pub get.$skipped',
       });
     } finally {
       phone.close();

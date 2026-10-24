@@ -111,3 +111,9 @@ String overridesByHand(Map<String, String> pins) {
   final names = pins.keys.toList()..sort();
   return [for (final name in names) '  $name: ${pins[name]}'].join('\n');
 }
+
+/// "1 plugin", "3 plugins".
+String plugins(int count) => switch (count) {
+      1 => '1 plugin',
+      _ => '$count plugins',
+    };

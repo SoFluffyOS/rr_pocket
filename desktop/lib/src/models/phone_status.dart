@@ -31,8 +31,7 @@ class Reachable extends PhoneStatus {
   final String flutterVersion;
   final int pluginCount;
 
-  String get summary =>
-      '$name at $address: Flutter $flutterVersion, $pluginCount plugins.';
+  String get summary => '$name at $address, Flutter $flutterVersion.';
 }
 
 class Unreachable extends PhoneStatus {

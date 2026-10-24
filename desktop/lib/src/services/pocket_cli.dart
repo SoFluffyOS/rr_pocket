@@ -5,6 +5,7 @@ import 'package:rr_pocket/src/constants.dart';
 import 'package:rr_pocket/src/models/models.dart';
 import 'package:rr_pocket/src/services/computer.dart';
 import 'package:rr_pocket/src/services/discovery.dart';
+import 'package:rr_pocket/src/services/doctor.dart';
 import 'package:rr_pocket/src/services/flutter_device.dart';
 import 'package:rr_pocket/src/services/pair_listener.dart';
 import 'package:rr_pocket/src/services/pair_request.dart';
@@ -65,6 +66,7 @@ class PocketCli {
         ['pair', '--qr'] => pairByQr(),
         ['pair', final address, final code] => pair(address, code),
         ['forget'] => forget(),
+        ['doctor'] => doctor(Directory.current),
         ['ping'] => ping(),
         ['pin'] => pin(Directory.current),
         ['pin', '--all'] => pin(Directory.current, all: true),
@@ -94,6 +96,7 @@ class PocketCli {
       '       pocket pair --qr                     (shows a QR code to scan)\n'
       '       pocket pair <phone address> <code>   (typed, as the phone shows)\n'
       '       pocket forget                        (unpairs this computer)\n'
+      '       pocket doctor                        (checks the setup, and a project)\n'
       '       pocket pin [--all]                   (in a project; --all: breaking changes too)\n'
       '       then: flutter run -d $deviceId',
     );
@@ -199,6 +202,20 @@ class PocketCli {
     return 0;
   }
 
+  /// Checks the setup, and [project] when it is one, and says what to fix.
+  Future<int> doctor(Directory project) async {
+    final checks = await runDoctor(
+      config: config,
+      flutter: _flutter,
+      project: project,
+    );
+    stdout.writeln(describeDoctor(checks));
+    return switch (checks.any((check) => check.state == DoctorState.problem)) {
+      true => 1,
+      false => 0,
+    };
+  }
+
   /// Forgets the paired phone. Flutter drops the device when its ping next
   /// fails; the phone keeps its code, so pairing again works.
   Future<int> forget() async {
@@ -228,7 +245,7 @@ class PocketCli {
     final hello = await (await Phone.load(config)).hello();
     final written = await writePins(hello, project, all: all);
     stdout.writeln(
-      'Pinned ${written.pins.length} plugins in ${written.file.path}.',
+      'Pinned ${plugins(written.pins.length)} in ${written.file.path}.',
     );
     if (written.breaking.isNotEmpty) {
       stdout.writeln(

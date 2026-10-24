@@ -315,7 +315,8 @@ void main() {
       expect(overrides, contains('  camera: 0.12.1  # was 0.12.0\n'));
       expect(host.shell.ran.single.command, ['flutter', 'pub', 'get']);
       expect(host.shell.ran.single.workingDirectory, project);
-      expect(messages(MessageType.info).single, startsWith('Pinned 1 plugins'));
+      expect(
+          messages(MessageType.info).single, startsWith('Pinned 1 plugin in'));
     });
 
     test('asks which project when there are several, the open one first',
@@ -437,7 +438,7 @@ void main() {
 
       expect(
         messages(MessageType.info).single,
-        'Test Phone at 127.0.0.1:${phone.port}: Flutter 3.47.7, 1 plugins.',
+        'Test Phone at 127.0.0.1:${phone.port}, Flutter 3.47.7.',
       );
     });
 
