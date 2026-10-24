@@ -29,18 +29,7 @@ export RR_FLUTTER_VERSION="$flutter_version" RR_ENGINE_REVISION="$engine_revisio
 
 cd "$root/app"
 flutter pub get >/dev/null
-# The Android plugins and versions this build carries, for /hello: a
-# computer checks a project against them before running it.
-python3 -I - "$root/app" <<'PY'
-import json, re, sys
-from pathlib import Path
-app = Path(sys.argv[1])
-lock = dict(re.findall(r'\n  (\w+):\n(?:    .*\n)*?    version: "([^"]+)"', (app / "pubspec.lock").read_text()))
-android = json.loads((app / ".flutter-plugins-dependencies").read_text())["plugins"]["android"]
-out = app / "android/app/src/main/assets/rr_plugins.json"
-out.parent.mkdir(parents=True, exist_ok=True)
-out.write_text(json.dumps({p["name"]: lock[p["name"]] for p in android}, indent=1, sort_keys=True) + "\n")
-PY
+python3 -I "$root/tool/write_plugin_list.py" "$root/app"
 flutter build apk --debug --target-platform "android-$abi" \
   --dart-define="RR_FLUTTER_VERSION=$flutter_version"
 
