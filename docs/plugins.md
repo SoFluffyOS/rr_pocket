@@ -198,8 +198,9 @@ What they needed from RR Pocket:
 
 The probe calls each: `checkGmsAvailability()`, `Isar.initializeIsarCore()`
 (it loads `libisar.so` and checks its version; a failure counts as
-MISSING), and a Hive box written and read back. Built; not yet probed on a
-phone.
+MISSING), and a Hive box written and read back. On the emulator (Android
+15, arm64) every check answered: Play services true, Isar core 3.4.1, the
+Hive value kept; the 26 from before still answer.
 
 ## Size, after trimming
 
