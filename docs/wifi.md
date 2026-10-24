@@ -28,6 +28,13 @@ flutter run -d pocket
   for; `runInView` uses the running engine's, so `install` skips them.
 - **The VM service listens on 127.0.0.1 only.** A byte-for-byte TCP relay
   on :8101 makes it reachable; HTTP, WebSockets and DDS all go through.
+- **A new run or a stop ends every relayed connection.** The VM lives as
+  long as RR Pocket's process, across sessions. A computer's DDS that
+  outlives its `flutter run` (killed, or the laptop asleep) keeps the VM to
+  itself: the next session's DDS can't start, the VM redirects it to the
+  dead one, and hot restart fails with "DevFS synchronization failed".
+  Checked on a Pixel 7 by killing a session hard: the next one hot
+  restarts in 1.4 s.
 - **`flutter run` is stock.** `pocket pair` registers a custom device
   whose commands are `pocket ping | install | run | uninstall`, run by
   Flutter's `dart` as `dart --packages=<config> package:rr_pocket/pocket.dart`

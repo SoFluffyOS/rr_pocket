@@ -6,6 +6,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URI
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
 /**
@@ -15,17 +16,39 @@ import kotlin.concurrent.thread
  * control server. Every engine in the process shares the one VM service.
  */
 class VmRelay(private val port: Int, private val vmServiceUri: () -> String?) {
-    fun start() {
+    /** Every relayed connection's two ends, while it lasts. */
+    private val open = ConcurrentHashMap.newKeySet<Socket>()
+
+    /** Listens on [port] (0 for any) and returns the port it got. */
+    fun start(): Int {
+        val server = ServerSocket()
+        server.reuseAddress = true
+        server.bind(InetSocketAddress(port))
         thread(isDaemon = true, name = "rr-pocket-vm-relay") {
-            ServerSocket().use { server ->
-                server.reuseAddress = true
-                server.bind(InetSocketAddress(port))
+            server.use {
                 while (true) {
                     val client = server.accept()
                     thread(isDaemon = true) { relay(client) }
                 }
             }
         }
+        return server.localPort
+    }
+
+    /**
+     * Ends every relayed connection. The VM outlives sessions, and a
+     * computer's DDS that outlived its own (a killed `flutter run`) would
+     * keep the VM to itself: the next session's DDS can't start, and its
+     * hot restart fails. A new run, or a stop, frees it.
+     */
+    fun closeAll() {
+        for (socket in open.toList()) {
+            try {
+                socket.close()
+            } catch (_: Exception) {
+            }
+        }
+        open.clear()
     }
 
     private fun relay(client: Socket) {
@@ -40,6 +63,8 @@ class VmRelay(private val port: Int, private val vmServiceUri: () -> String?) {
             client.close()
             return
         }
+        open += client
+        open += engine
         thread(isDaemon = true) { pump(client.getInputStream(), engine.getOutputStream(), client, engine) }
         pump(engine.getInputStream(), client.getOutputStream(), client, engine)
     }
@@ -51,6 +76,8 @@ class VmRelay(private val port: Int, private val vmServiceUri: () -> String?) {
         } finally {
             a.close()
             b.close()
+            open -= a
+            open -= b
         }
     }
 }

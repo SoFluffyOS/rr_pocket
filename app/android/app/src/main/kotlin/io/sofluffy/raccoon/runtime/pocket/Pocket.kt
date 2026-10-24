@@ -27,6 +27,8 @@ object Pocket {
     private var activity = WeakReference<Activity>(null)
     private var link: String? = null
 
+    private var relay: VmRelay? = null
+
     /** The running project's first seconds, watched for a startup error. */
     private var watch: StartupErrorWatch? = null
 
@@ -52,7 +54,7 @@ object Pocket {
         pairing?.let { return it }
         val context = activity.applicationContext
         val pairing = Pairing(context).also { pairing = it }
-        VmRelay(VM_RELAY_PORT, ::vmServiceUri).start()
+        relay = VmRelay(VM_RELAY_PORT, ::vmServiceUri).also { it.start() }
         // Learn the engine's VM service address now, before anything
         // attaches: a tool attached with DDS (run_probe.sh's driver does)
         // makes FlutterJNI report the computer's address instead.
@@ -86,6 +88,7 @@ object Pocket {
     private fun stopProject() {
         watch?.stop()
         watch = null
+        relay?.closeAll()
         activity()?.let {
             it.runOnUiThread {
                 StartupErrorPanel.dismiss()
@@ -136,6 +139,8 @@ object Pocket {
      */
     private fun runInView(bundle: File): String {
         prompt.projectRunning = true
+        // A new session: whatever the last one left attached goes.
+        relay?.closeAll()
         // Before the restart: an error in the project's first milliseconds
         // is logged before the watch could start.
         val since = Date()
