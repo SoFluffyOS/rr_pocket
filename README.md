@@ -47,16 +47,16 @@ adb logcat | grep 'VM service'     # copy the URL
 python3 tool/drive_attach.py <project> <URL> [device]
 ```
 
-The project's `main` must call `DartPluginRegistrant.ensureInitialized()`
-first, until the custom device generates that wrapper, and its plugins must
-be pinned to the versions RR Pocket carries:
+The project needs no code change. Its plugins must be pinned to the versions
+RR Pocket carries:
 
 ```sh
 python3 tool/pin_plugins.py <project> && (cd <project> && flutter pub get)
 ```
 
 `probe/` is such a project: it calls every bundled plugin and logs
-`PROBE <plugin> ok …` or `MISSING`. Run it after changing the plugin set.
+`PROBE <plugin> ok …` or `MISSING`. After changing the plugin set, install
+the new APK and run `tool/run_probe.sh`; it fails on any `MISSING`.
 
 ## Layout
 
@@ -69,7 +69,7 @@ python3 tool/pin_plugins.py <project> && (cd <project> && flutter pub get)
 - `tool/build_apk.sh`: the build above.
 - `tool/make_icons.py`: draws the R² launcher icons from Nunito ExtraBold
   (needs Pillow).
-- `probe/`: calls every bundled plugin, to check a build.
+- `probe/`, `tool/run_probe.sh`: calls every bundled plugin, to check a build.
 - `docs/plugins.md`: which plugins to bundle and why, and what Tier 1 cost.
 - `tool/pin_plugins.py`: pins a project to the plugin versions RR Pocket
   carries.

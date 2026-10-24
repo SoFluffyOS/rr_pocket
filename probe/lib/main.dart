@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show DartPluginRegistrant;
 
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -23,7 +22,6 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 void main() {
-  DartPluginRegistrant.ensureInitialized();
   runApp(const MaterialApp(home: Probe()));
 }
 

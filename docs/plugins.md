@@ -133,7 +133,10 @@ Found on the way:
   sqflite, url_launcher, video_player, webview failed; MethodChannel
   plugins worked). The second run is fine. `tool/drive_attach.py` runs
   `flutter build bundle` first when the registrant is missing (10 s, once);
-  the custom device will write the registrant itself.
+  the custom device will write the registrant itself. With the registrant
+  compiled in, the engine runs it on the restart by itself: the project's
+  `main` needs no `DartPluginRegistrant.ensureInitialized()` (the spike
+  thought it did; that run was the first-run bug).
 - **canLaunchUrl said false for https.** Android 11's package visibility:
   the app's manifest must declare the intents it queries, and the user's
   project can't. RR Pocket declares VIEW for http and https, SENDTO for
