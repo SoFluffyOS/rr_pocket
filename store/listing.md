@@ -43,6 +43,9 @@ GOOD TO KNOW
 • A plugin RR Pocket doesn't carry throws MissingPluginException when called; build your app the usual way for that one.
 • Your phone and computer need to be on the same network.
 
+WHY "RR"
+Raccoon Runtime, the Flutter runtime underneath. And r and R: the keys that hot reload and hot restart your app.
+
 RR Pocket is a development tool: it runs the code a paired computer sends it. Pair only computers you trust.
 
 PRIVACY

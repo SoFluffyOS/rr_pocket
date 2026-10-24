@@ -3,6 +3,8 @@
 Run your Flutter app on your Android phone with just the Flutter SDK. No
 Android SDK, no adb, no Gradle build. Like Expo Go, for Flutter.
 
+RR is Raccoon Runtime, and r and R: Flutter's hot reload and hot restart keys.
+
 ![RR Pocket, light and dark](branding/screenshot.png)
 
 RR Pocket is an Android app with Flutter's debug engine and a set of plugins
