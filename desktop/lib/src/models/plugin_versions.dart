@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:rr_pocket/src/models/overrides.dart';
+
 /// Package versions from a pubspec.lock, with either line ending.
 Map<String, String> parseLockedVersions(String lock) => {
       for (final match in RegExp(
@@ -43,7 +45,11 @@ Map<String, String> bundledPlugins(Map<String, Object?> hello) {
 /// A plugin's Dart side in the project and its Kotlin side in RR Pocket must
 /// be the same version, and a plugin RR Pocket lacks throws when called.
 class PluginCheck {
-  const PluginCheck({required this.differ, required this.missing});
+  const PluginCheck({
+    required this.differ,
+    required this.missing,
+    this.breaking = const [],
+  });
 
   factory PluginCheck.compare({
     required Map<String, String> carried,
@@ -54,7 +60,17 @@ class PluginCheck {
       differ: [
         for (final MapEntry(key: name, value: version) in carried.entries)
           if (used[name] case final theirs? when theirs != version)
-            '$name $theirs (RR Pocket has $version)',
+            switch (isBreakingChange(theirs, version)) {
+              true => '$name $theirs (RR Pocket has $version, a breaking '
+                  'change)',
+              false => '$name $theirs (RR Pocket has $version)',
+            },
+      ],
+      breaking: [
+        for (final MapEntry(key: name, value: version) in carried.entries)
+          if (used[name] case final theirs?
+              when theirs != version && isBreakingChange(theirs, version))
+            name,
       ],
       missing: [
         for (final name in android)
@@ -68,4 +84,7 @@ class PluginCheck {
 
   /// Android plugins the project uses that RR Pocket does not carry.
   final List<String> missing;
+
+  /// The plugins of [differ] whose versions are a breaking change apart.
+  final List<String> breaking;
 }

@@ -304,11 +304,30 @@ class PocketCommands {
     try {
       final project = await projects.pick(position: positionOf(args));
       if (project == null) return;
+      final hello = await context.window.withProgress(
+        title: 'Asking RR Pocket for its plugin versions',
+        task: (_) => phone.hello().timeout(helloTimeout),
+      );
+      // A breaking change may not compile: ask before pinning across one.
+      final planned = planPins(
+        carried: bundledPlugins(hello),
+        used: usedVersions(Directory(project)) ?? const {},
+      );
+      var all = false;
+      if (planned.breaking.isNotEmpty) {
+        all = await context.window.showConfirmDialog(
+          'These are a breaking change from what the project uses:\n'
+          '${describeBreaking(planned.breaking)}\n\n'
+          'Pin them too? The project may not compile until its code, or a '
+          'package that uses them, is updated. If not, upgrade the project '
+          'to these versions instead.',
+          title: 'Pin across a breaking change?',
+        );
+      }
       final written = await context.window.withProgress(
         title: 'Matching RR Pocket\'s plugin versions',
         task: (_) async {
-          final hello = await phone.hello().timeout(helloTimeout);
-          final written = await writePins(hello, Directory(project));
+          final written = await writePins(hello, Directory(project), all: all);
           final got = await _flutter(
             ['pub', 'get'],
             workingDirectory: project,
@@ -321,11 +340,15 @@ class PocketCommands {
           return written;
         },
       );
+      final skipped = switch (written.breaking.isEmpty) {
+        true => '',
+        false => ' Not pinned, a breaking change: '
+            '${[for (final pin in written.breaking) pin.name].join(', ')}.',
+      };
       await _info(switch (written.pins.length) {
-        0 => 'This project uses none of the plugins RR Pocket carries; '
-            'nothing to pin.',
-        final count =>
-          'Pinned $count plugins in ${written.file.path} and ran pub get.',
+        0 => 'Nothing pinned.$skipped',
+        final count => 'Pinned $count plugins in ${written.file.path} and ran '
+            'pub get.$skipped',
       });
     } finally {
       phone.close();

@@ -113,6 +113,46 @@ sdks:
       );
     });
 
+    test('breaking changes, by semver', () {
+      expect(isBreakingChange('10.3.1', '11.2.0'), isTrue);
+      expect(isBreakingChange('11.2.0', '10.3.1'), isTrue);
+      expect(isBreakingChange('3.3.2', '3.4.1'), isFalse);
+      expect(isBreakingChange('0.11.0', '0.12.1'), isTrue);
+      expect(isBreakingChange('0.12.0', '0.12.1'), isFalse);
+      expect(isBreakingChange('1.0.2', '1.0.4+1'), isFalse);
+      expect(isBreakingChange('main', 'main'), isFalse);
+      expect(isBreakingChange('main', '1.0.0'), isTrue);
+    });
+
+    test('notes what each pin replaced, and reads it back', () {
+      final text = renderOverrides(
+        {'flutter_secure_storage': '11.2.0', 'share_plus': '13.3.1'},
+        was: {'flutter_secure_storage': '10.3.1', 'share_plus': '13.3.1'},
+      );
+      expect(
+          text, contains('  flutter_secure_storage: 11.2.0  # was 10.3.1\n'));
+      expect(text, contains('  share_plus: 13.3.1\n'));
+      expect(parseWas(text), {'flutter_secure_storage': '10.3.1'});
+    });
+
+    test('pins across a breaking change only when asked', () {
+      const carried = {
+        'flutter_secure_storage': '11.2.0',
+        'share_plus': '13.3.1'
+      };
+      const used = {'flutter_secure_storage': '10.3.1', 'share_plus': '13.3.0'};
+
+      final safe = planPins(carried: carried, used: used);
+      expect(safe.pins, {'share_plus': '13.3.1'});
+      expect(safe.breaking, [
+        (name: 'flutter_secure_storage', theirs: '10.3.1', ours: '11.2.0'),
+      ]);
+
+      final all = planPins(carried: carried, used: used, all: true);
+      expect(all.pins, carried);
+      expect(all.breaking, isEmpty);
+    });
+
     test('a flutter_libs plugin moves its lockstep family with it', () {
       expect(
         pinsFor(

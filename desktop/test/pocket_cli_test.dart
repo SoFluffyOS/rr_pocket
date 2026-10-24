@@ -244,6 +244,61 @@ void main() {
     });
   });
 
+  group('a breaking change', () {
+    late FakePhone storagePhone;
+    late PocketCli storageCli;
+
+    setUp(() async {
+      storagePhone = await FakePhone.start(
+        plugins: {'flutter_secure_storage': '11.2.0', 'share_plus': '13.3.1'},
+      );
+      await Phone('127.0.0.1', storagePhone.port, storagePhone.code)
+          .save(config);
+      storageCli = PocketCli(config: config, environment: const {});
+      File('${temp.path}/pubspec.lock').writeAsStringSync(
+        'packages:\n'
+        '  flutter_secure_storage:\n    source: hosted\n    version: "10.3.1"\n'
+        '  share_plus:\n    source: hosted\n    version: "13.3.0"\n',
+      );
+    });
+
+    tearDown(() => storagePhone.close());
+
+    test('install says which differences are breaking', () async {
+      expect(await storageCli(['install', bundle.path, 'app']), 1);
+      final why = config.installFailedFile.readAsStringSync();
+      expect(
+          why,
+          contains(
+              'flutter_secure_storage 10.3.1 (RR Pocket has 11.2.0, a breaking change)'));
+      expect(why, contains('share_plus 13.3.0 (RR Pocket has 13.3.1)\n'));
+      expect(why, contains('pocket pin --all'));
+    });
+
+    test('pin leaves the breaking one, --all pins it too', () async {
+      final hello =
+          await Phone('127.0.0.1', storagePhone.port, storagePhone.code)
+              .hello();
+
+      final safe = await writePins(hello, temp);
+      expect(safe.pins, {'share_plus': '13.3.1'});
+      expect(safe.breaking.single.name, 'flutter_secure_storage');
+
+      final all = await writePins(hello, temp, all: true);
+      expect(all.pins, containsPair('flutter_secure_storage', '11.2.0'));
+
+      // pub get then locks the pin; pinning again still sees 10.3.1.
+      File('${temp.path}/pubspec.lock').writeAsStringSync(
+        'packages:\n'
+        '  flutter_secure_storage:\n    source: hosted\n    version: "11.2.0"\n'
+        '  share_plus:\n    source: hosted\n    version: "13.3.1"\n',
+      );
+      final again = await writePins(hello, temp);
+      expect(again.breaking.single.theirs, '10.3.1');
+      expect(again.pins, isNot(contains('flutter_secure_storage')));
+    });
+  });
+
   test('ping fails before pairing', () async {
     final unpaired = PocketCli(config: PocketConfig('${temp.path}/none'));
     expect(await unpaired(['ping']), 1);

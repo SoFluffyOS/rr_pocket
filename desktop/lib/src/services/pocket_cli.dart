@@ -67,6 +67,7 @@ class PocketCli {
         ['forget'] => forget(),
         ['ping'] => ping(),
         ['pin'] => pin(Directory.current),
+        ['pin', '--all'] => pin(Directory.current, all: true),
         ['install', final bundle, _] => _recordInstall(() => install(bundle)),
         ['run', ...] => run(),
         ['uninstall', ...] => stop(),
@@ -93,7 +94,7 @@ class PocketCli {
       '       pocket pair --qr                     (shows a QR code to scan)\n'
       '       pocket pair <phone address> <code>   (typed, as the phone shows)\n'
       '       pocket forget                        (unpairs this computer)\n'
-      '       pocket pin                           (in a project)\n'
+      '       pocket pin [--all]                   (in a project; --all: breaking changes too)\n'
       '       then: flutter run -d $deviceId',
     );
     return 64;
@@ -223,12 +224,20 @@ class PocketCli {
 
   /// Pins the project's Android plugins to the versions RR Pocket carries,
   /// in its pubspec_overrides.yaml, then resolves.
-  Future<int> pin(Directory project) async {
+  Future<int> pin(Directory project, {bool all = false}) async {
     final hello = await (await Phone.load(config)).hello();
-    final written = await writePins(hello, project);
+    final written = await writePins(hello, project, all: all);
     stdout.writeln(
       'Pinned ${written.pins.length} plugins in ${written.file.path}.',
     );
+    if (written.breaking.isNotEmpty) {
+      stdout.writeln(
+        'Not pinned, a breaking change from what the project uses:\n'
+        '${describeBreaking(written.breaking)}\n'
+        'Upgrade the project to those versions, or pin them anyway with '
+        '`pocket pin --all` and fix what no longer compiles.',
+      );
+    }
     final got = await runFlutterProcess(
       ['pub', 'get'],
       workingDirectory: project.path,
@@ -369,11 +378,22 @@ void checkPlugins(Map<String, Object?> hello, Directory project) {
     android: androidPlugins(project) ?? const [],
   );
   if (check.differ.isNotEmpty) {
+    final advice = switch (check.breaking.length == check.differ.length) {
+      true => 'Upgrade the project to RR Pocket\'s versions, or run it on a '
+          'custom build of RR Pocket.',
+      false => 'Run `pocket pin` in the project (in Lumide: RR Pocket: Match '
+          'Plugin Versions), then run again.',
+    };
+    final breaking = switch (check.breaking.isEmpty) {
+      true => '',
+      false => '\nA breaking change can\'t be pinned safely: upgrade the '
+          'project to RR Pocket\'s version of ${check.breaking.join(', ')}, '
+          'or `pocket pin --all` and fix what no longer compiles.',
+    };
     throw PocketException(
       'plugin versions differ from RR Pocket\'s:\n'
       '  ${check.differ.join('\n  ')}\n'
-      'Run `pocket pin` in the project (in Lumide: RR Pocket: Match Plugin '
-      'Versions), then run again.',
+      '$advice$breaking',
     );
   }
   final missing = check.missing;

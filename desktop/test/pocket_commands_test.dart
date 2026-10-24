@@ -312,7 +312,7 @@ void main() {
 
       final overrides =
           await File('$project/pubspec_overrides.yaml').readAsString();
-      expect(overrides, contains('  camera: 0.12.1\n'));
+      expect(overrides, contains('  camera: 0.12.1  # was 0.12.0\n'));
       expect(host.shell.ran.single.command, ['flutter', 'pub', 'get']);
       expect(host.shell.ran.single.workingDirectory, project);
       expect(messages(MessageType.info).single, startsWith('Pinned 1 plugins'));
@@ -351,6 +351,25 @@ void main() {
         [for (final item in host.window.lastPick) item.payload],
         [example, plugin],
       );
+    });
+
+    test('asks before pinning across a breaking change', () async {
+      await Phone('127.0.0.1', phone.port, phone.code).save(config);
+      final project = await addProject('app');
+      await phone.close();
+      phone = await FakePhone.start(plugins: {'camera': '1.0.0'});
+      await savePairing();
+
+      await commands.pin();
+      expect(
+          host.window.confirmations.single, contains('camera 0.12.0 -> 1.0.0'));
+      final overrides = File('$project/pubspec_overrides.yaml');
+      expect(overrides.readAsStringSync(), isNot(contains('camera')));
+      expect(messages(MessageType.info).last, contains('Not pinned'));
+
+      host.window.confirm = true;
+      await commands.pin();
+      expect(overrides.readAsStringSync(), contains('camera: 1.0.0'));
     });
 
     test('leaves overrides it did not write', () async {

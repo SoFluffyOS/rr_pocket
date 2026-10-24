@@ -35,6 +35,21 @@ File? findLock(Directory project) {
 File _file(Directory folder, String name) =>
     File('${folder.path}${Platform.pathSeparator}$name');
 
+/// The versions the project asks for: its lock's, except that packages
+/// `pocket pin` moved count at the version they had before (noted in the
+/// overrides). Null without a lock.
+Map<String, String>? usedVersions(Directory project) {
+  final lock = findLock(project);
+  if (lock == null) return null;
+  final overrides = _file(lock.parent, 'pubspec_overrides.yaml');
+  final was = switch (overrides.existsSync()) {
+    true when isOurOverrides(overrides.readAsStringSync()) =>
+      parseWas(overrides.readAsStringSync()),
+    _ => const <String, String>{},
+  };
+  return {...parseLockedVersions(lock.readAsStringSync()), ...was};
+}
+
 /// Package versions from the pubspec.lock that resolves [project], or null
 /// without one.
 Map<String, String>? lockedVersions(Directory project) {
@@ -68,18 +83,28 @@ Map<String, Object?>? sdkVersions(Map<String, String> environment) {
 /// project (a pub workspace's root, where pub reads overrides), pinning its
 /// Android plugins to the versions RR Pocket carries, and returns the pins.
 /// `flutter pub get` comes after.
-Future<({File file, Map<String, String> pins})> writePins(
+Future<
+    ({
+      File file,
+      Map<String, String> pins,
+      List<BreakingPin> breaking,
+    })> writePins(
   Map<String, Object?> hello,
-  Directory project,
-) async {
+  Directory project, {
+  bool all = false,
+}) async {
   final lock = findLock(project);
   if (lock == null) {
     throw PocketException(
       'no pubspec.lock for ${project.path}; run flutter pub get',
     );
   }
-  final used = parseLockedVersions(lock.readAsStringSync());
-  final pins = pinsFor(carried: bundledPlugins(hello), used: used);
+  final used = usedVersions(project) ?? const <String, String>{};
+  final (:pins, :breaking) = planPins(
+    carried: bundledPlugins(hello),
+    used: used,
+    all: all,
+  );
   final file = File(
     '${lock.parent.path}${Platform.pathSeparator}pubspec_overrides.yaml',
   );
@@ -89,6 +114,6 @@ Future<({File file, Map<String, String> pins})> writePins(
       '${overridesByHand(pins)}',
     );
   }
-  await file.writeAsString(renderOverrides(pins));
-  return (file: file, pins: pins);
+  await file.writeAsString(renderOverrides(pins, was: used));
+  return (file: file, pins: pins, breaking: breaking);
 }
