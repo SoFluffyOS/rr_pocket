@@ -35,6 +35,8 @@ class RrPocketPlugin extends LumidePlugin {
     await _registerCommands(context);
     unawaited(_refreshQuietly());
     unawaited(_registerDeviceQuietly());
+    // Phones on the network, ready before anyone opens pairing.
+    unawaited(commands.searchNetwork());
     logService.info('RR Pocket plugin ready.');
   }
 

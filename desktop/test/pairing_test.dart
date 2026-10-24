@@ -115,6 +115,17 @@ void main() {
       expect(phones.single.flutterVersion, '3.47.7');
     });
 
+    test('discovery returns as soon as the phone answers', () async {
+      final watch = Stopwatch()..start();
+      final phones = await discoverPhones(
+        client: LingeringMdns.new,
+        browse: const Duration(milliseconds: 300),
+        resolve: const Duration(seconds: 5),
+      );
+      expect(phones.single.name, 'Pixel 7');
+      expect(watch.elapsed, lessThan(const Duration(seconds: 2)));
+    });
+
     test('discovery finds nothing when multicast is blocked', () async {
       expect(await discoverPhones(client: BlockedMdns.new), isEmpty);
     });
@@ -316,6 +327,21 @@ class FakeMdns extends MDnsClient {
             address: InternetAddress('192.168.1.20')),
     ];
     return Stream.fromIterable(records.whereType<T>());
+  }
+}
+
+/// An mDNS client whose answers come at once but whose lookups stay open
+/// until their timeout, as on a real network.
+class LingeringMdns extends FakeMdns {
+  @override
+  Stream<T> lookup<T extends ResourceRecord>(
+    ResourceRecordQuery query, {
+    Duration timeout = const Duration(seconds: 5),
+  }) {
+    final controller = StreamController<T>();
+    super.lookup<T>(query).forEach(controller.add);
+    Timer(timeout, controller.close);
+    return controller.stream;
   }
 }
 

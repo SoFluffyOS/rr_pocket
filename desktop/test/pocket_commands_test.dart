@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -131,6 +132,7 @@ void main() {
       found = [
         FoundPhone(name: 'Pixel 7', host: '127.0.0.1', port: phone.port)
       ];
+      await commands.searchNetwork();
       host.window.pickPayload = null;
 
       await commands.pair();
@@ -144,10 +146,62 @@ void main() {
       ]);
     });
 
+    test('opens at once, without waiting for the network', () async {
+      final hanging = Completer<List<FoundPhone>>();
+      final waiting = PocketCommands(
+        host,
+        config: config,
+        statusBar: StatusBarService(host),
+        projects: ProjectPicker(host),
+        discover: () => hanging.future,
+      );
+      host.window.pickPayload = null;
+
+      await waiting.pair().timeout(const Duration(seconds: 1));
+
+      expect([
+        for (final item in host.window.lastPick) item.payload
+      ], [
+        'qr',
+        'type',
+        'search',
+      ]);
+      hanging.complete([]);
+    });
+
+    test('searches when asked, then offers what it found', () async {
+      found = [
+        FoundPhone(name: 'Pixel 7', host: '127.0.0.1', port: phone.port)
+      ];
+      host.window.pickPayload = 'search';
+
+      await commands.pair();
+
+      expect(
+        host.window.progressTitles,
+        contains('Looking for RR Pocket on this network'),
+      );
+      expect(host.window.lastPick.first.payload, 'found:0');
+    });
+
+    test('a search that finds nothing offers the other routes', () async {
+      host.window.pickPayload = 'search';
+
+      await commands.pair();
+
+      expect([
+        for (final item in host.window.lastPick) item.payload
+      ], [
+        'qr',
+        'type',
+      ]);
+    });
+
     test('pairs with a found phone once its user allows it', () async {
       found = [
         FoundPhone(name: 'Pixel 7', host: '127.0.0.1', port: phone.port)
       ];
+      await commands.searchNetwork();
       host.window.pickPayload = 'found:0';
 
       await commands.pair();
@@ -164,6 +218,7 @@ void main() {
       found = [
         FoundPhone(name: 'Pixel 7', host: '127.0.0.1', port: phone.port)
       ];
+      await commands.searchNetwork();
       host.window.pickPayload = 'found:0';
       phone.pairAnswer = PairAnswer.refuse;
 
@@ -202,7 +257,7 @@ void main() {
 
       final pairing = commands.pair();
       final panel = await host.window.panelOpened.future;
-      while (!host.window.progressTitles.last.startsWith('Waiting')) {
+      while (!host.window.progressTitles.any((t) => t.startsWith('Waiting'))) {
         await Future<void>.delayed(Duration.zero);
       }
       host.window.lastProgress?.cancel();

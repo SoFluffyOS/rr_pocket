@@ -80,14 +80,32 @@ class PocketCommands {
     return status;
   }
 
+  /// The phones the last search found, for pairing to offer at once.
+  List<FoundPhone> _found = const [];
+  Future<List<FoundPhone>>? _searching;
+
+  /// Looks for RR Pocket on the network, one search at a time; what it
+  /// finds is offered the next time pairing opens. The plugin searches when
+  /// it starts and whenever the menu or pairing opens, so nobody waits.
+  Future<List<FoundPhone>> searchNetwork() {
+    if (_searching case final running?) return running;
+    final search = _discover().then(
+      (phones) => _found = phones,
+      onError: (Object _) => _found,
+    );
+    _searching = search;
+    return search.whenComplete(() {
+      if (identical(_searching, search)) _searching = null;
+    });
+  }
+
   /// Pairs by the best route that works (docs/pairing.md): a phone found on
   /// the network, which asks its user; a QR code the phone scans; or the
-  /// address and code typed in.
+  /// address and code typed in. Never waits for the network: it offers the
+  /// phones found so far, and searches again in the background.
   Future<void> pair() async {
-    final phones = await context.window.withProgress(
-      title: 'Looking for RR Pocket on this network',
-      task: (_) => _discover().catchError((Object _) => <FoundPhone>[]),
-    );
+    final phones = _found;
+    unawaited(searchNetwork());
     final picked = await context.window.showQuickPick(
       [
         for (final (index, phone) in phones.indexed)
@@ -107,19 +125,64 @@ class PocketCommands {
           description: 'As RR Pocket shows them',
           payload: 'type',
         ),
+        if (phones.isEmpty)
+          const QuickPickItem(
+            label: 'Search the network again',
+            description: 'For RR Pocket open on this Wi-Fi',
+            payload: 'search',
+          ),
       ],
       placeholder: switch (phones.isEmpty) {
-        true => 'No phone found on this network. Pair another way',
+        true => 'No phone found on this network yet. Pair another way',
         false => 'Pair with',
       },
     );
     final payload = picked?.payload;
+    if (payload == 'search') return _searchThenPair();
     if (payload == 'qr') return _pairByQr();
     if (payload == 'type') return _pairTyped();
     if (payload is! String || !payload.startsWith('found:')) return;
     final index = int.tryParse(payload.substring('found:'.length)) ?? -1;
     if (index < 0 || index >= phones.length) return;
     return _pairFound(phones[index]);
+  }
+
+  /// The one place pairing waits for the network: the user asked to.
+  Future<void> _searchThenPair() async {
+    final phones = await context.window.withProgress(
+      title: 'Looking for RR Pocket on this network',
+      task: (_) => searchNetwork(),
+    );
+    if (phones.isEmpty) {
+      return _offerOtherRoutes(
+        'No RR Pocket found on this network. The network may hide phones '
+        'from each other.',
+      );
+    }
+    return pair();
+  }
+
+  Future<void> _offerOtherRoutes(String message) async {
+    final picked = await context.window.showQuickPick(
+      const [
+        QuickPickItem(
+          label: 'Show a QR code',
+          description: 'Scan it with RR Pocket',
+          payload: 'qr',
+        ),
+        QuickPickItem(
+          label: 'Type the address and code',
+          description: 'As RR Pocket shows them',
+          payload: 'type',
+        ),
+      ],
+      placeholder: message,
+    );
+    return switch (picked?.payload) {
+      'qr' => _pairByQr(),
+      'type' => _pairTyped(),
+      _ => null,
+    };
   }
 
   Future<void> _pairFound(FoundPhone found) async {
@@ -292,6 +355,7 @@ class PocketCommands {
   /// RR Pocket's menu, from the status bar: the phone, then what can be
   /// done with it. [args] carries where the item was clicked.
   Future<void> menu([Map<String, dynamic>? args]) async {
+    unawaited(searchNetwork());
     final status = _status ?? await _statusFromFile();
     QuickPickItem action(String command, String label, String icon) =>
         QuickPickItem(label: label, payload: command, icon: icon);
