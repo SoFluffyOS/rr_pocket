@@ -1,14 +1,33 @@
 import 'package:rr_pocket/src/constants.dart';
 
 /// The plugins of [carried] the project uses, at RR Pocket's versions.
+///
+/// A `*_flutter_libs` plugin carries only a native library for packages
+/// released in lockstep with it (isar_community and its generator): the
+/// project's packages that share its prefix and were at its version move
+/// with it, or pub could not resolve the pin.
 Map<String, String> pinsFor({
   required Map<String, String> carried,
   required Map<String, String> used,
-}) =>
-    {
-      for (final MapEntry(key: name, value: version) in carried.entries)
-        if (used.containsKey(name)) name: version,
-    };
+}) {
+  final pins = <String, String>{};
+  for (final MapEntry(key: name, value: version) in carried.entries) {
+    final theirs = used[name];
+    if (theirs == null) continue;
+    pins[name] = version;
+    if (!name.endsWith(_libsSuffix)) continue;
+    final family = name.substring(0, name.length - _libsSuffix.length);
+    for (final MapEntry(key: sibling, value: siblingVersion) in used.entries) {
+      if (sibling == name || siblingVersion != theirs) continue;
+      if (sibling == family || sibling.startsWith('${family}_')) {
+        pins[sibling] = version;
+      }
+    }
+  }
+  return pins;
+}
+
+const _libsSuffix = '_flutter_libs';
 
 /// Whether `pocket pin` wrote [overrides], so it may replace them.
 bool isOurOverrides(String overrides) =>

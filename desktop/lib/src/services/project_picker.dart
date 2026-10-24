@@ -63,7 +63,8 @@ class ProjectPicker {
       if (lockPath == null || isIgnoredPath(lockPath, folders)) continue;
       final project = path.dirname(lockPath);
       final pubspec = await _read(path.join(project, 'pubspec.yaml'));
-      if (pubspec == null || !isFlutterPubspec(pubspec)) continue;
+      if (pubspec == null) continue;
+      if (!isFlutterPubspec(pubspec) && !isWorkspacePubspec(pubspec)) continue;
       projects.add(project);
     }
     return projects..sort();

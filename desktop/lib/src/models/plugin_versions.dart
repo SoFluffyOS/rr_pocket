@@ -11,7 +11,8 @@ Map<String, String> parseLockedVersions(String lock) => {
 
 /// The Android plugin packages a project resolves, implementations
 /// included (url_launcher_android), from Flutter's
-/// `.flutter-plugins-dependencies`.
+/// `.flutter-plugins-dependencies`. Dev dependencies (integration_test) are
+/// left out: they never run in the app.
 List<String> parseAndroidPlugins(String flutterPluginsDependencies) {
   final json = jsonDecode(flutterPluginsDependencies);
   if (json is! Map) return const [];
@@ -21,7 +22,10 @@ List<String> parseAndroidPlugins(String flutterPluginsDependencies) {
   if (android is! List) return const [];
   return [
     for (final plugin in android)
-      if (plugin is Map && plugin['name'] is String) plugin['name'] as String,
+      if (plugin is Map &&
+          plugin['name'] is String &&
+          plugin['dev_dependency'] != true)
+        plugin['name'] as String,
   ];
 }
 

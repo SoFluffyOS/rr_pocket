@@ -4,10 +4,42 @@ import 'dart:io';
 import 'package:rr_pocket/src/models/models.dart';
 import 'package:rr_pocket/src/services/phone.dart';
 
-/// Package versions from the project's pubspec.lock, or null without one.
+/// The pubspec.lock that resolves [project]: its own, or, for a member of a
+/// pub workspace (`resolution: workspace`), the workspace root's above it.
+/// Null before `flutter pub get`.
+File? findLock(Directory project) {
+  final own = _file(project, 'pubspec.lock');
+  if (own.existsSync()) return own;
+  final pubspec = _file(project, 'pubspec.yaml');
+  if (!pubspec.existsSync() ||
+      !RegExp(r'^resolution:\s*workspace', multiLine: true)
+          .hasMatch(pubspec.readAsStringSync())) {
+    return null;
+  }
+  var folder = project.absolute.parent;
+  while (true) {
+    final root = _file(folder, 'pubspec.yaml');
+    if (root.existsSync() && isWorkspacePubspec(root.readAsStringSync())) {
+      final lock = _file(folder, 'pubspec.lock');
+      return switch (lock.existsSync()) {
+        true => lock,
+        false => null,
+      };
+    }
+    final parent = folder.parent;
+    if (parent.path == folder.path) return null;
+    folder = parent;
+  }
+}
+
+File _file(Directory folder, String name) =>
+    File('${folder.path}${Platform.pathSeparator}$name');
+
+/// Package versions from the pubspec.lock that resolves [project], or null
+/// without one.
 Map<String, String>? lockedVersions(Directory project) {
-  final lock = File('${project.path}${Platform.pathSeparator}pubspec.lock');
-  if (!lock.existsSync()) return null;
+  final lock = findLock(project);
+  if (lock == null) return null;
   return parseLockedVersions(lock.readAsStringSync());
 }
 
@@ -32,22 +64,24 @@ Map<String, Object?>? sdkVersions(Map<String, String> environment) {
   return null;
 }
 
-/// Writes the project's pubspec_overrides.yaml, pinning its Android plugins
-/// to the versions RR Pocket carries, and returns the pins. `flutter pub
-/// get` comes after.
+/// Writes pubspec_overrides.yaml next to the pubspec.lock that resolves the
+/// project (a pub workspace's root, where pub reads overrides), pinning its
+/// Android plugins to the versions RR Pocket carries, and returns the pins.
+/// `flutter pub get` comes after.
 Future<({File file, Map<String, String> pins})> writePins(
   Map<String, Object?> hello,
   Directory project,
 ) async {
-  final used = lockedVersions(project);
-  if (used == null) {
+  final lock = findLock(project);
+  if (lock == null) {
     throw PocketException(
-      'no pubspec.lock in ${project.path}; run flutter pub get',
+      'no pubspec.lock for ${project.path}; run flutter pub get',
     );
   }
+  final used = parseLockedVersions(lock.readAsStringSync());
   final pins = pinsFor(carried: bundledPlugins(hello), used: used);
   final file = File(
-    '${project.path}${Platform.pathSeparator}pubspec_overrides.yaml',
+    '${lock.parent.path}${Platform.pathSeparator}pubspec_overrides.yaml',
   );
   if (file.existsSync() && !isOurOverrides(file.readAsStringSync())) {
     throw PocketException(

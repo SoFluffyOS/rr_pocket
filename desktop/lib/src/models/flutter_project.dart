@@ -30,3 +30,8 @@ const _ignoredSegments = {'.dart_tool', 'build', '.symlinks', '.pub-cache'};
 /// Whether a pubspec.yaml depends on the Flutter SDK.
 bool isFlutterPubspec(String pubspec) =>
     RegExp(r'^\s+sdk:\s*flutter\s*$', multiLine: true).hasMatch(pubspec);
+
+/// Whether a pubspec.yaml is a pub workspace's root, which holds the lock
+/// and the overrides for its members.
+bool isWorkspacePubspec(String pubspec) =>
+    RegExp(r'^workspace:', multiLine: true).hasMatch(pubspec);

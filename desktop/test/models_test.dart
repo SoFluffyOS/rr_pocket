@@ -72,6 +72,12 @@ sdks:
       expect(parseAndroidPlugins(json),
           ['camera_android', 'url_launcher_android']);
       expect(parseAndroidPlugins('{"plugins": {}}'), isEmpty);
+      expect(
+        parseAndroidPlugins(
+            '{"plugins": {"android": [{"name": "camera_android"}, '
+            '{"name": "integration_test", "dev_dependency": true}]}}'),
+        ['camera_android'],
+      );
       expect(parseAndroidPlugins('[]'), isEmpty);
     });
 
@@ -104,6 +110,26 @@ sdks:
           used: {'camera': '0.12.0', 'path': '1.9.1'},
         ),
         {'camera': '0.12.1'},
+      );
+    });
+
+    test('a flutter_libs plugin moves its lockstep family with it', () {
+      expect(
+        pinsFor(
+          carried: {'isar_community_flutter_libs': '3.4.1'},
+          used: {
+            'isar_community_flutter_libs': '3.3.2',
+            'isar_community': '3.3.2',
+            'isar_community_generator': '3.3.2',
+            'isar_community_extra': '1.0.0',
+            'isar_other': '3.3.2',
+          },
+        ),
+        {
+          'isar_community_flutter_libs': '3.4.1',
+          'isar_community': '3.4.1',
+          'isar_community_generator': '3.4.1',
+        },
       );
     });
 

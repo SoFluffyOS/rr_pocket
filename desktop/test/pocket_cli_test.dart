@@ -166,6 +166,84 @@ void main() {
     expect(await cli(['forget']), 0);
   });
 
+  group('a pub workspace', () {
+    late Directory root;
+    late Directory app;
+    late FakePhone isarPhone;
+    late PocketCli workspaceCli;
+
+    const lock = '''packages:
+  isar_community:
+    source: hosted
+    version: "3.3.2"
+  isar_community_flutter_libs:
+    source: hosted
+    version: "3.3.2"
+  isar_community_generator:
+    source: hosted
+    version: "3.3.2"
+''';
+
+    setUp(() async {
+      isarPhone = await FakePhone.start(
+        plugins: {'isar_community_flutter_libs': '3.4.1'},
+      );
+      await Phone('127.0.0.1', isarPhone.port, isarPhone.code).save(config);
+      workspaceCli = PocketCli(config: config, environment: const {});
+      root = Directory('${temp.path}/converter')..createSync();
+      File('${root.path}/pubspec.yaml')
+          .writeAsStringSync('name: root\nworkspace:\n  - apps/mcu\n');
+      File('${root.path}/pubspec.lock').writeAsStringSync(lock);
+      app = Directory('${root.path}/apps/mcu')..createSync(recursive: true);
+      File('${app.path}/pubspec.yaml').writeAsStringSync(
+        'name: mcu\nresolution: workspace\n'
+        'dependencies:\n  flutter:\n    sdk: flutter\n',
+      );
+      Directory('${app.path}/build/flutter_assets').createSync(recursive: true);
+      File('${app.path}/build/flutter_assets/kernel_blob.bin')
+          .writeAsStringSync('kernel');
+    });
+
+    tearDown(() => isarPhone.close());
+
+    test('install reads the root lock and stops on a version mismatch',
+        () async {
+      expect(
+        await workspaceCli(
+            ['install', '${app.path}/build/flutter_assets', 'mcu']),
+        1,
+      );
+      expect(
+        config.installFailedFile.readAsStringSync(),
+        contains('isar_community_flutter_libs 3.3.2 (RR Pocket has 3.4.1)'),
+      );
+      expect(isarPhone.bundle, isEmpty);
+    });
+
+    test('pin writes the overrides at the root, the family included', () async {
+      final hello =
+          await Phone('127.0.0.1', isarPhone.port, isarPhone.code).hello();
+      final written = await writePins(hello, app);
+
+      expect(written.file.path, '${root.path}/pubspec_overrides.yaml');
+      expect(written.pins, {
+        'isar_community': '3.4.1',
+        'isar_community_flutter_libs': '3.4.1',
+        'isar_community_generator': '3.4.1',
+      });
+      expect(File('${app.path}/pubspec_overrides.yaml').existsSync(), isFalse);
+    });
+
+    test('a project outside any workspace never reads a lock above it', () {
+      final loose = Directory('${root.path}/tools/loose')
+        ..createSync(recursive: true);
+      File('${loose.path}/pubspec.yaml').writeAsStringSync('name: loose\n');
+
+      expect(lockedVersions(loose), isNull);
+      expect(lockedVersions(app), containsPair('isar_community', '3.3.2'));
+    });
+  });
+
   test('ping fails before pairing', () async {
     final unpaired = PocketCli(config: PocketConfig('${temp.path}/none'));
     expect(await unpaired(['ping']), 1);
