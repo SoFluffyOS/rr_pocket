@@ -1,4 +1,4 @@
-package io.sofluffy.rr_pocket
+package io.sofluffy.raccoon.runtime.pocket
 
 import io.flutter.embedding.android.FlutterActivity
 

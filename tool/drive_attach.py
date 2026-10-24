@@ -19,7 +19,7 @@ def logcat(pattern):
 
 
 p = subprocess.Popen(
-    ["flutter", "attach", "-d", "emulator-5554", "--app-id", "io.sofluffy.rr_pocket",
+    ["flutter", "attach", "-d", "emulator-5554", "--app-id", "io.sofluffy.raccoon.runtime.pocket",
      "--debug-url", url, "--machine"],
     cwd=app_dir, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
 

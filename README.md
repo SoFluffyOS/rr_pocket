@@ -42,7 +42,7 @@ python3 ../../../../../../tool/undebug_manifest.py AndroidManifest.xml
 zip app-debug.apk AndroidManifest.xml && zip -d app-debug.apk 'META-INF/*'
 zipalign -f -p 4 app-debug.apk aligned.apk
 apksigner sign --ks ~/.android/debug.keystore --ks-pass pass:android --out rr_pocket.apk aligned.apk
-adb install rr_pocket.apk && adb shell am start -n io.sofluffy.rr_pocket/.MainActivity
+adb install rr_pocket.apk && adb shell am start -n io.sofluffy.raccoon.runtime.pocket/.MainActivity
 ```
 
 Then, from any Flutter project whose `main` calls
