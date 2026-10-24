@@ -22,4 +22,8 @@ const String iconPhone = 'smartphone';
 
 /// The first line of the pubspec_overrides.yaml that `pocket pin` writes, so
 /// it replaces only its own. `tool/pin_plugins.py` writes the same.
-const String overridesHeader = '# Written by RR Pocket (dart pocket.dart pin)';
+const String overridesHeader = '# Written by RR Pocket (pocket pin)';
+
+/// What `dart pocket.dart pin` wrote, before the `pocket` command.
+const String oldOverridesHeader =
+    '# Written by RR Pocket (dart pocket.dart pin)';

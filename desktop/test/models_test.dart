@@ -101,6 +101,12 @@ sdks:
       );
       expect(isOurOverrides(text), isTrue);
       expect(isOurOverrides('dependency_overrides:\n'), isFalse);
+      expect(
+        isOurOverrides(
+          '# Written by RR Pocket (dart pocket.dart pin): the Android ...\n',
+        ),
+        isTrue,
+      );
     });
   });
 

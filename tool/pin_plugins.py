@@ -13,7 +13,9 @@ from pathlib import Path
 
 # The same header as `pocket pin` writes (desktop/lib/src/constants.dart), so
 # either may replace the other's.
-HEADER = "# Written by RR Pocket (dart pocket.dart pin)"
+HEADER = "# Written by RR Pocket (pocket pin)"
+# What tool/pocket.dart wrote, before the pocket command.
+OLD_HEADER = "# Written by RR Pocket (dart pocket.dart pin)"
 app = Path(__file__).resolve().parent.parent / "app"
 project = Path(sys.argv[1])
 
@@ -33,7 +35,7 @@ if project_lock.exists():
     pins = {name: version for name, version in pins.items() if name in used}
 
 overrides = project / "pubspec_overrides.yaml"
-if overrides.exists() and not overrides.read_text().startswith(HEADER):
+if overrides.exists() and not overrides.read_text().startswith((HEADER, OLD_HEADER)):
     sys.exit(f"{overrides} exists and is not ours; merge these by hand:\n"
              + "\n".join(f"  {n}: {v}" for n, v in sorted(pins.items())))
 

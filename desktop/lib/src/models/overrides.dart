@@ -11,7 +11,9 @@ Map<String, String> pinsFor({
     };
 
 /// Whether `pocket pin` wrote [overrides], so it may replace them.
-bool isOurOverrides(String overrides) => overrides.startsWith(overridesHeader);
+bool isOurOverrides(String overrides) =>
+    overrides.startsWith(overridesHeader) ||
+    overrides.startsWith(oldOverridesHeader);
 
 /// The pubspec_overrides.yaml that pins [pins], sorted by name.
 String renderOverrides(Map<String, String> pins) {
