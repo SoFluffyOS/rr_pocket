@@ -19,7 +19,7 @@ class Pairing(context: Context) {
 
     private val gate = CodeGate(code)
 
-    fun accepts(offered: String?) = gate.accepts(offered)
+    fun accepts(offered: String?, from: String) = gate.accepts(offered, from)
 
     /** The phone's IPv4 address on Wi-Fi (or any LAN), null when offline. */
     fun address(): String? {

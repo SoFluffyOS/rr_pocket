@@ -54,7 +54,7 @@ object Pocket {
         pairing?.let { return it }
         val context = activity.applicationContext
         val pairing = Pairing(context).also { pairing = it }
-        relay = VmRelay(VM_RELAY_PORT, ::vmServiceUri).also { it.start() }
+        relay = VmRelay(VM_RELAY_PORT, vmServiceUri = ::vmServiceUri).also { it.start() }
         // Learn the engine's VM service address now, before anything
         // attaches: a tool attached with DDS (run_probe.sh's driver does)
         // makes FlutterJNI report the computer's address instead.

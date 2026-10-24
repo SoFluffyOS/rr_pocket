@@ -15,7 +15,11 @@ import kotlin.concurrent.thread
  * URL still guards it; the computer learns it only through the paired
  * control server. Every engine in the process shares the one VM service.
  */
-class VmRelay(private val port: Int, private val vmServiceUri: () -> String?) {
+class VmRelay(
+    private val port: Int,
+    private val limit: ConnectionLimit = ConnectionLimit(total = 32, perSender = 16),
+    private val vmServiceUri: () -> String?,
+) {
     /** Every relayed connection's two ends, while it lasts. */
     private val open = ConcurrentHashMap.newKeySet<Socket>()
 
@@ -28,7 +32,20 @@ class VmRelay(private val port: Int, private val vmServiceUri: () -> String?) {
             server.use {
                 while (true) {
                     val client = server.accept()
-                    thread(isDaemon = true) { relay(client) }
+                    // Each connection holds two threads; anyone on the
+                    // Wi-Fi can open them.
+                    val sender = senderOf(client.inetAddress)
+                    if (!limit.take(sender)) {
+                        client.close()
+                        continue
+                    }
+                    thread(isDaemon = true) {
+                        try {
+                            relay(client)
+                        } finally {
+                            limit.release(sender)
+                        }
+                    }
                 }
             }
         }

@@ -35,13 +35,16 @@ import org.json.JSONObject
 class PocketServer(
     private val port: Int,
     private val code: String,
-    private val accepts: (String?) -> Boolean,
+    /** Whether a code offered by a sender ([senderOf]) is right. */
+    private val accepts: (String?, String) -> Boolean,
     private val root: File,
     private val hello: () -> String,
     private val actions: Actions,
     private val prompt: PairPrompt,
     private val pairTimeoutMs: Long = 60_000L,
     private val quietMs: Long = 30_000L,
+    private val readTimeoutMs: Int = 30_000,
+    private val limit: ConnectionLimit = ConnectionLimit(total = 32, perSender = 16),
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     @Volatile
@@ -84,7 +87,18 @@ class PocketServer(
             server.use {
                 while (true) {
                     val client = server.accept()
-                    thread(isDaemon = true) { serve(client) }
+                    val sender = senderOf(client.inetAddress)
+                    if (!limit.take(sender)) {
+                        client.close()
+                        continue
+                    }
+                    thread(isDaemon = true) {
+                        try {
+                            serve(client, sender)
+                        } finally {
+                            limit.release(sender)
+                        }
+                    }
                 }
             }
         }
@@ -95,9 +109,11 @@ class PocketServer(
      * One connection, until it ends. Anything that goes wrong with it, a
      * reset mid-request included, ends it and only it: an exception out of
      * this thread would end RR Pocket, and anyone on the Wi-Fi can connect.
+     * A connection that sends nothing for [readTimeoutMs] ends too.
      */
-    private fun serve(socket: Socket) {
+    private fun serve(socket: Socket, sender: String) {
         try {
+            socket.soTimeout = readTimeoutMs
             socket.use {
                 val input = BufferedInputStream(it.getInputStream())
                 val output = it.getOutputStream()
@@ -105,11 +121,11 @@ class PocketServer(
                 while (true) {
                     val request = Request.read(input) ?: return
                     if (request.method == "GET" && request.path == "/logs") {
-                        if (authorized(request)) return streamLogs(output)
+                        if (authorized(request, sender)) return streamLogs(output)
                         return Response(401, error("wrong pairing code")).write(output)
                     }
                     val response = try {
-                        respond(request, from)
+                        respond(request, from, sender)
                     } catch (e: Exception) {
                         Response(500, error(e.message ?: e.toString()))
                     }
@@ -122,8 +138,8 @@ class PocketServer(
         }
     }
 
-    private fun authorized(request: Request) =
-        accepts(request.header("authorization")?.removePrefix("Bearer "))
+    private fun authorized(request: Request, sender: String) =
+        accepts(request.header("authorization")?.removePrefix("Bearer "), sender)
 
     /**
      * Dart's `print` lands in this process's log under the `flutter` tag; an
@@ -154,9 +170,9 @@ class PocketServer(
         }
     }
 
-    private fun respond(request: Request, from: String): Response {
+    private fun respond(request: Request, from: String, sender: String): Response {
         if (request.method == "POST" && request.path == "/pair") return pair(request, from)
-        if (!authorized(request)) {
+        if (!authorized(request, sender)) {
             return Response(401, error("wrong pairing code"))
         }
         val path = request.path

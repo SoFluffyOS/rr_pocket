@@ -25,10 +25,15 @@ class PocketServerTest {
     private var stopped = false
     private val prompt = FakePrompt()
     @Volatile private var clock = 0L
-    private val port = PocketServer(
+    private val port = startServer()
+
+    private fun startServer(
+        readTimeoutMs: Int = 30_000,
+        limit: ConnectionLimit = ConnectionLimit(total = 32, perSender = 16),
+    ) = PocketServer(
         port = 0,
         code = "CODE",
-        accepts = { it == "CODE" },
+        accepts = { offered, _ -> offered == "CODE" },
         root = root,
         hello = { """{"name":"RR Pocket"}""" },
         actions = object : PocketServer.Actions {
@@ -44,6 +49,8 @@ class PocketServerTest {
         prompt = prompt,
         pairTimeoutMs = 1000,
         now = { clock },
+        readTimeoutMs = readTimeoutMs,
+        limit = limit,
     ).start()
 
     /** Answers with [answer] after [delayMs]; null leaves the question open. */
@@ -248,6 +255,37 @@ class PocketServerTest {
         }
 
         assertEquals(200, request("GET", "/hello").status)
+    }
+
+    @Test
+    fun endsAConnectionThatSendsNothing() {
+        val quick = startServer(readTimeoutMs = 300)
+        Socket("127.0.0.1", quick).use { socket ->
+            socket.soTimeout = 5000
+            assertEquals(-1, socket.getInputStream().read())
+        }
+    }
+
+    @Test
+    fun holdsOnlySoManyConnectionsFromOneSender() {
+        val capped = startServer(limit = ConnectionLimit(total = 32, perSender = 2))
+        val held = List(2) { Socket("127.0.0.1", capped) }
+        try {
+            Socket("127.0.0.1", capped).use { extra ->
+                extra.soTimeout = 5000
+                assertEquals(-1, extra.getInputStream().read())
+            }
+            held[0].close()
+            Thread.sleep(200)
+            Socket("127.0.0.1", capped).use { socket ->
+                socket.getOutputStream().write(
+                    "GET /hello HTTP/1.1\r\nAuthorization: Bearer CODE\r\n\r\n".toByteArray(),
+                )
+                assertEquals(200, readResponse(socket).status)
+            }
+        } finally {
+            held.forEach { it.close() }
+        }
     }
 
     @Test
