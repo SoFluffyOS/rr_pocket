@@ -1,0 +1,1 @@
+First release: run your Flutter project on this phone with flutter run -d pocket. No Android SDK, no adb. Hot reload, 26 plugins built in.

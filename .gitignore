@@ -3,3 +3,5 @@ __pycache__/
 *.apk
 # Written by tool/build_apk.sh.
 app/android/app/src/main/assets/rr_plugins.json
+# The upload keystore the deploy workflow decodes.
+.assets/
