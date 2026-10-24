@@ -42,11 +42,12 @@ def path(char, scale, left, top):
     return pen.getCommands()
 
 
-def logo(x, y, w, h):
+def logo(x, y, w, h, two_size=0.42):
     """R and a superscript 2 centred in the box, as make_icons.py's
-    draw_logo: R at 0.92 of the box's height, 2 at 0.42, a slight overlap."""
+    draw_logo: R at 0.92 of the box's height, 2 at [two_size], a slight
+    overlap."""
     upm = font["head"].unitsPerEm
-    r_scale, two_scale = h * 0.92 / upm, h * 0.42 / upm
+    r_scale, two_scale = h * 0.92 / upm, h * two_size / upm
     rx0, ry0, rx1, ry1 = bounds("R")
     tx0, ty0, tx1, ty1 = bounds("2")
     r_w, r_h = (rx1 - rx0) * r_scale, (ry1 - ry0) * r_scale
@@ -54,8 +55,11 @@ def logo(x, y, w, h):
     gap = -h * 0.03
     left = x + (w - (r_w + gap + two_w)) / 2
     top = y + (h - r_h) / 2
+    two_top = top - h * 0.02
+    # Where the mark ends up: left, top, right, bottom.
+    box = (left, min(top, two_top), left + r_w + gap + two_w, top + r_h)
     return (path("R", r_scale, left, top),
-            path("2", two_scale, left + r_w + gap, top - h * 0.02))
+            path("2", two_scale, left + r_w + gap, two_top), box)
 
 
 def svg(size, body):
@@ -65,13 +69,19 @@ def svg(size, body):
 
 OUT.mkdir(parents=True, exist_ok=True)
 
-# The status bar draws it at 14 px: the mark fills the square.
-r, two = logo(0, 2, 24, 20)
+# The status bar draws it at 14 px, as large as Lumide's other icons: the
+# view box is the mark's own bounds, made square, and the 2 a little larger
+# to stay legible.
+r, two, (x0, y0, x1, y1) = logo(0, 0, 100, 100, two_size=0.5)
+side = max(x1 - x0, y1 - y0)
+left, top = x0 - (side - (x1 - x0)) / 2, y0 - (side - (y1 - y0)) / 2
 (OUT / "icon_rr_pocket_solid.svg").write_text(
-    svg(24, f'<path fill="#000" d="{r} {two}"/>'))
+    f'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" '
+    f'viewBox="{left:.2f} {top:.2f} {side:.2f} {side:.2f}">'
+    f'<path fill="#000" d="{r} {two}"/></svg>\n')
 
 # The app icon: the mark on its slate square.
-r, two = logo(64 * 0.18, 64 * 0.22, 64 * 0.64, 64 * 0.56)
+r, two, _ = logo(64 * 0.18, 64 * 0.22, 64 * 0.64, 64 * 0.56)
 (OUT / "icon_rr_pocket.svg").write_text(svg(64, (
     f'<rect width="64" height="64" rx="14" fill="{BACKGROUND}"/>'
     f'<path fill="{LETTER}" d="{r}"/><path fill="{SQUARE}" d="{two}"/>')))
