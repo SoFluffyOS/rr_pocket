@@ -53,7 +53,12 @@ class ProjectPicker {
   /// The project to check without asking: the one holding the open file,
   /// or the only one; null when there is no such project.
   Future<String?> current() async {
-    final projects = await flutterProjects();
+    final List<String> projects;
+    try {
+      projects = await flutterProjects();
+    } catch (_) {
+      return null; // the setup can still be checked without one
+    }
     final active = await _activeDocumentPath();
     final holding = [
       for (final project in projects)

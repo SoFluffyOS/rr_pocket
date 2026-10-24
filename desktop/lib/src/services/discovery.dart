@@ -18,7 +18,9 @@ Future<List<FoundPhone>> discoverPhones({
 }) async {
   final mdns = (client ?? MDnsClient.new)();
   try {
-    await mdns.start();
+    // Errors sending queries arrive here, not from lookup: a network with no
+    // route for multicast must not leave them unhandled.
+    await mdns.start(onError: (Object _) {});
   } on SocketException {
     return const [];
   }
