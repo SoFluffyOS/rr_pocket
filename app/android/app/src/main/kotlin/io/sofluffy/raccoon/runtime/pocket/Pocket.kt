@@ -84,10 +84,17 @@ object Pocket {
 
     private fun activity() = activity.get()
 
+    /** Replaces the watch on the project's first seconds; null ends it. */
+    @Synchronized
+    private fun swapWatch(next: StartupErrorWatch?) {
+        watch?.stop()
+        watch = next
+        next?.start()
+    }
+
     /** Back to RR Pocket's own screen: a new engine, without the project. */
     private fun stopProject() {
-        watch?.stop()
-        watch = null
+        swapWatch(null)
         relay?.closeAll()
         activity()?.let {
             it.runOnUiThread {
@@ -150,8 +157,7 @@ object Pocket {
             prompt.projectRunning = false
             throw e
         }
-        watch?.stop()
-        watch = StartupErrorWatch(since, onError = ::showStartupError).also { it.start() }
+        swapWatch(StartupErrorWatch(since, onError = ::showStartupError))
         return path
     }
 

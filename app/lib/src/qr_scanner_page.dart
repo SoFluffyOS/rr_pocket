@@ -55,6 +55,9 @@ class _QrScannerPageState extends State<QrScannerPage> {
     _scans = controller.scannedDataStream.listen((barcode) {
       if (_done || !mounted) return;
       if (barcode.code case final text? when text.isNotEmpty) {
+        // A computer's Allow question may have opened over the scanner:
+        // closing that instead would answer it.
+        if (!(ModalRoute.of(context)?.isCurrent ?? false)) return;
         _done = true;
         unawaited(HapticFeedback.mediumImpact());
         context.navigator.pop(text);

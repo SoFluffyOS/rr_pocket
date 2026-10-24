@@ -14,9 +14,10 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * What the phone shows when a project fails before its first frame:
- * RR Pocket's own Flutter screen is gone by then, so this is drawn natively,
- * over everything, and takes the taps the frozen screen can't.
+ * What the phone shows when a project throws as it starts. If it failed
+ * before its first frame, RR Pocket's own Flutter screen is gone and
+ * nothing answers taps, so this is drawn natively; if it started anyway,
+ * this card at the bottom leaves the rest of the app usable.
  */
 object StartupErrorPanel {
     private var shown: View? = null
@@ -55,7 +56,9 @@ object StartupErrorPanel {
 
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            background = rounded(surface, 24)
+            background = rounded(surface, 24, muted)
+            elevation = dp(8).toFloat()
+            isClickable = true
             setPadding(dp(20), dp(20), dp(20), dp(16))
             addView(text("Your app hit an error as it started", 18f, ink, bold = true))
             addView(text(
@@ -83,9 +86,8 @@ object StartupErrorPanel {
                 )
             })
         }
+        // Not clickable, no scrim: taps outside the card reach the app.
         val scrim = FrameLayout(activity).apply {
-            setBackgroundColor(Color.parseColor("#99000000"))
-            isClickable = true
             setPadding(dp(16), dp(16), dp(16), dp(32))
             addView(
                 card,

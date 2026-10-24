@@ -17,8 +17,8 @@ class StartupErrorWatch(
     private val windowMs: Long = 15_000L,
     private val onError: (String) -> Unit,
 ) {
-    @Volatile
     private var process: Process? = null
+    private var stopped = false
 
     fun start() {
         thread(isDaemon = true, name = "rr-pocket-startup-errors") {
@@ -27,7 +27,15 @@ class StartupErrorWatch(
                 SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.US).format(since),
                 "--pid=${android.os.Process.myPid()}", "flutter:E", "*:S",
             ).redirectErrorStream(true).start()
-            process = logcat
+            // A stop that came first ends it now, not after the window.
+            val keep = synchronized(this) {
+                if (!stopped) process = logcat
+                !stopped
+            }
+            if (!keep) {
+                logcat.destroy()
+                return@thread
+            }
             // The window closes the log, which ends the reading below.
             thread(isDaemon = true) {
                 Thread.sleep(windowMs)
@@ -35,7 +43,8 @@ class StartupErrorWatch(
             }
             try {
                 logcat.inputStream.bufferedReader().useLines { lines ->
-                    startupError(lines)?.let(onError)
+                    val error = startupError(lines)
+                    if (error != null && synchronized(this) { !stopped }) onError(error)
                 }
             } catch (_: Exception) {
             } finally {
@@ -44,7 +53,9 @@ class StartupErrorWatch(
         }
     }
 
+    @Synchronized
     fun stop() {
+        stopped = true
         process?.destroy()
         process = null
     }
