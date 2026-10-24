@@ -39,6 +39,19 @@ flutter run -d pocket
   `$FLUTTER_ROOT/bin/cache/flutter.version.json` and stops with a message
   when they differ.
 
+## Plugins
+
+`/hello` lists the Android plugin packages and versions the build carries
+(`tool/build_apk.sh` writes them into the APK's assets). Before sending a
+bundle, `install` compares them with the project's `pubspec.lock`: a version
+that differs stops the run with the list and "run `dart pocket.dart pin`";
+a plugin RR Pocket lacks is a warning. `pin` writes the project's
+`pubspec_overrides.yaml` from the phone's list and runs `flutter pub get`.
+
+The tool runs the app even when `install` failed (it only logs the
+failure), which would restart the previous bundle; so `install` leaves a
+marker and `run` refuses with the same message.
+
 ## Security
 
 Anyone who can drive the control server can run code in RR Pocket, so:
@@ -93,7 +106,5 @@ build cache; the network is `adb forward` of :8100 and :8101 only.
   1 on the way), and whether phones' Wi-Fi isolation blocks :8100.
 - Finding the phone without typing its address (mDNS, as Lumide's sharing
   does).
-- Checking the project's plugins against RR Pocket's in `install` (today
-  that is `tool/pin_plugins.py`, run by hand).
 - `pocket.dart` lives in this repo; it wants to be a pub package or part of
   Lumide's Raccoon tooling.

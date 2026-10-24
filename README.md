@@ -52,12 +52,14 @@ That registers the `pocket` device with your Flutter SDK. Then, from any
 project:
 
 ```sh
-python3 tool/pin_plugins.py . && flutter pub get   # match RR Pocket's plugins
+dart <rr_pocket>/tool/pocket.dart pin   # match RR Pocket's plugin versions
 flutter run -d pocket
 ```
 
 The project's Flutter version must be RR Pocket's (the home screen says
-which); `flutter run` stops with a message when it isn't. How it works:
+which), and its plugins the versions RR Pocket carries; `flutter run` stops
+with a message saying which when they aren't. A plugin RR Pocket lacks gets a
+warning: calls to it throw `MissingPluginException`. How it works:
 `docs/wifi.md`.
 
 `probe/` is a project that calls every bundled plugin and logs
@@ -77,8 +79,8 @@ the new APK and run `tool/run_probe.sh`; it fails on any `MISSING`.
   (needs Pillow).
 - `probe/`, `tool/run_probe.sh`: calls every bundled plugin, to check a build.
 - `docs/plugins.md`: which plugins to bundle and why, and what Tier 1 cost.
-- `tool/pin_plugins.py`: pins a project to the plugin versions RR Pocket
-  carries.
+- `tool/pin_plugins.py`: `pocket.dart pin` from this checkout, without a
+  phone (used for `probe/`).
 - `app/android/.../pocket/`: the Kotlin side a computer talks to: the
   pairing code, the control server, the VM service relay.
 - `tool/pocket.dart`: the computer's side, behind the `pocket` device.
