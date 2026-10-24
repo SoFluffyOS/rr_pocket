@@ -6,10 +6,14 @@ plugins {
 
 android {
     namespace = "io.sofluffy.raccoon.runtime.pocket"
-    compileSdk = flutter.compileSdkVersion
+    // permission_handler_android 14 compiles against 37; Flutter 3.47's
+    // default is 36.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // flutter_local_notifications needs java.time on older Androids.
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -34,4 +38,8 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

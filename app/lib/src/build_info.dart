@@ -13,15 +13,23 @@ abstract final class BuildInfo {
 
   /// The app-facing plugin packages in pubspec.yaml.
   static const plugins = [
+    'audio_session',
     'battery_plus',
+    'camera',
     'connectivity_plus',
     'device_info_plus',
     'file_picker',
+    'flutter_local_notifications',
     'flutter_secure_storage',
+    'geolocator',
     'image_picker',
     'in_app_review',
+    'just_audio',
+    'local_auth',
     'package_info_plus',
     'path_provider',
+    'permission_handler',
+    'record',
     'sensors_plus',
     'share_plus',
     'shared_preferences',

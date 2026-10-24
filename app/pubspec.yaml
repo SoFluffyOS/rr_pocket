@@ -9,17 +9,25 @@ environment:
 # Every Flutter plugin here is one a project can use on RR Pocket; the home
 # screen lists them (lib/src/build_info.dart, kept in step by a test).
 dependencies:
+  audio_session: ^0.2.4
   battery_plus: ^7.1.2
+  camera: ^0.12.1
   connectivity_plus: ^7.3.1
   device_info_plus: ^13.3.0
   file_picker: ^13.2.0
   flutter:
     sdk: flutter
+  flutter_local_notifications: ^22.3.2
   flutter_secure_storage: ^11.2.0
+  geolocator: ^14.1.2
   image_picker: ^1.2.4
   in_app_review: ^2.0.12
+  just_audio: ^0.10.6
+  local_auth: ^3.0.2
   package_info_plus: ^10.2.2
   path_provider: ^2.1.6
+  permission_handler: ^13.0.2
+  record: ^7.1.2
   sensors_plus: ^7.1.1
   share_plus: ^13.3.1
   shared_preferences: ^2.5.6

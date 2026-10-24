@@ -1,5 +1,6 @@
 package io.sofluffy.raccoon.runtime.pocket
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// A fragment activity, because local_auth shows its prompt as a fragment.
+class MainActivity : FlutterFragmentActivity()
