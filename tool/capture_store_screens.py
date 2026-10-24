@@ -1,26 +1,33 @@
 """Captures the raw screens for the Play listing into store/captures/.
 
 Needs a device or emulator with RR Pocket installed and paired
-(pocket pair ...). Sets the display to a 1080x2400 phone and
-a clean status bar while it works, and puts both back after.
+(pocket pair ...), and Pillow. Sets the display to a 1080x2400 phone and
+a clean status bar while it works, and puts both back after. Saves the
+address and code the phone shows in pairing.json, for the terminal drawn
+next to it.
 
 Usage: python3 tool/capture_store_screens.py [device id]   (default emulator-5554)
 """
+import io
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
 import time
 from pathlib import Path
 
+from PIL import Image
+
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "store/captures"
 DEMO = ROOT / "store/demo"
 APP = "io.sofluffy.raccoon.runtime.pocket"
 device = sys.argv[1] if len(sys.argv) > 1 else "emulator-5554"
-adb_path = os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Android/Sdk")),
-                        "platform-tools/adb")
+SDKS = [os.environ.get("ANDROID_HOME", ""), "~/Android/Sdk", "~/Library/Android/sdk"]
+adb_path = next(path for path in (os.path.join(os.path.expanduser(sdk), "platform-tools/adb") for sdk in SDKS if sdk)
+                if os.path.exists(path))
 
 
 def adb(*args, **kw):
@@ -31,11 +38,55 @@ def shell(command):
     adb("shell", command)
 
 
+def screen():
+    return Image.open(io.BytesIO(adb("exec-out", "screencap", "-p").stdout)).convert("RGB")
+
+
 def capture(name):
     time.sleep(1.5)
-    data = adb("exec-out", "screencap", "-p").stdout
-    (OUT / f"{name}.png").write_bytes(data)
+    screen().save(OUT / f"{name}.png")
     print("captured", name)
+
+
+def save_pairing():
+    """The address and code RR Pocket shows, from its log line."""
+    log = adb("logcat", "-d", "-s", "RRPocket", text=True).stdout
+    found = re.findall(r"pair with: (\S+) (\S+)", log)
+    if not found:
+        sys.exit("RR Pocket logged no pairing line")
+    address, code = found[-1]
+    (OUT / "pairing.json").write_text(json.dumps({"address": address, "code": code}))
+
+
+def differs(a, b):
+    return sum(abs(x - y) for x, y in zip(a, b)) > 18
+
+
+def scroll_to_build_card():
+    """Scrolls the home screen so the card listing the plugins starts just
+    below the status bar, not cut off by it. Slow swipes, so nothing flings;
+    then checks the card's rounded corner, and scrolls on past a cut card."""
+    density = 420 / 160
+    image = screen()
+    background = image.getpixel((10, image.height // 2))  # the page margin
+    left = round(24 * density) + 3  # inside a card's left edge, at its corner
+    tops = [y for y in range(1, image.height)
+            if differs(image.getpixel((540, y)), background)
+            and not differs(image.getpixel((540, y - 1)), background)
+            and not differs(image.getpixel((left, y)), background)]
+    logo, build = tops[0], tops[-1]  # the logo, the last card on screen
+    safe_top = logo - round(48 * density)
+    # Flutter's touch slop (18 dp) is lost from a drag.
+    distance = build - safe_top - round(16 * density) + round(18 * density)
+    shell(f"input swipe 540 1900 540 {1900 - distance} 1500")
+    for _ in range(3):
+        time.sleep(1)
+        image = screen()
+        y = next(y for y in range(safe_top, image.height) if differs(image.getpixel((540, y)), background))
+        if not differs(image.getpixel((left, y)), background):
+            return  # a card's rounded top: nothing cut
+        bottom = next(y2 for y2 in range(y, image.height) if not differs(image.getpixel((540, y2)), background))
+        shell(f"input swipe 540 1900 540 {1900 - (bottom - safe_top) - round(34 * density)} 1500")
 
 
 def demo_status_bar(on):
@@ -111,8 +162,9 @@ demo_status_bar(True)
 try:
     open_pocket(night=False)
     capture("home_light")
+    save_pairing()
     open_pocket(night=True)
-    shell("input swipe 540 1900 540 500 400")
+    scroll_to_build_card()
     capture("plugins_dark")
     open_pocket(night=False)
     run_demo()

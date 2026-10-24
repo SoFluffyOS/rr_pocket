@@ -1,7 +1,8 @@
 # Google Play listing
 
 Paste into Play Console → Grow → Store presence → Main store listing.
-Graphics are in `play/` (remake with `tool/capture_store_screens.py`, then
+Graphics are in `play/`: six screenshots and the feature graphic (remake
+with `tool/capture_store_screens.py` on a paired emulator, then
 `tool/make_store_assets.py`).
 
 ## Before publishing (Simon)
@@ -9,10 +10,6 @@ Graphics are in `play/` (remake with `tool/capture_store_screens.py`, then
 - **Publish the `rr_pocket` package when the listing goes live.** The
   description tells users to run `dart pub global activate rr_pocket`; that
   works only once `desktop/` is on pub.dev.
-- **Remake the graphics.** `2-no-sdk.png` and the home screen captures still
-  show `dart pocket.dart pair`; the app and `tool/make_store_assets.py` now
-  say `pocket pair`. Capture again on a paired emulator
-  (`tool/capture_store_screens.py`), then `tool/make_store_assets.py`.
 - **Host the privacy policy** (`privacy-policy.md`) and give Play its URL.
 - **First upload by hand:** Play's API can't create the app, so the first
   bundle goes up in the Play Console (from the workflow's artifact or

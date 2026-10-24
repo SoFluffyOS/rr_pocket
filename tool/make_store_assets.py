@@ -1,5 +1,6 @@
 """Composes the Play listing's graphics from store/captures/ into store/play/:
-five phone screenshots (1080x1920) and the feature graphic (1024x500).
+the phone screenshots (1080x1920) and the feature graphic (1024x500). The
+sixth draws Lumide, in its Ailurus Dark theme, running the demo on RR Pocket.
 
 Every shot that shows the demo app also shows where it comes from (the
 project on a computer, the command that runs it) and says it is the
@@ -8,15 +9,19 @@ app.
 
 Usage: python3 tool/make_store_assets.py   (needs Pillow; run the capture first)
 """
+import json
+import os
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
-CAPTURES = ROOT / "store/captures"
-OUT = ROOT / "store/play"
+# Overridable to preview the layout with stand-in captures.
+CAPTURES = Path(os.environ.get("RR_CAPTURES", ROOT / "store/captures"))
+OUT = Path(os.environ.get("RR_PLAY", ROOT / "store/play"))
 FONTS = ROOT / "app/fonts"
-MONO = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+# DejaVu Sans Mono on Linux, Menlo (drawn from it) on macOS.
+MONOS = ["/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", "/System/Library/Fonts/Menlo.ttc"]
 
 SLATE = (31, 41, 51)
 NIGHT = (14, 19, 25)
@@ -39,10 +44,12 @@ def font(weight, size):
 
 
 def mono(size):
-    try:
-        return ImageFont.truetype(MONO, size)
-    except OSError:
-        return ImageFont.load_default(size)
+    for path in MONOS:
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            continue
+    return ImageFont.load_default(size)
 
 
 def capture(name):
@@ -86,7 +93,7 @@ def window(title, width, height, radius=28):
     """A dark desktop window with traffic lights and a title."""
     card = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(card)
-    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=radius, fill=CODE_BG + (250,), outline=EDGE, width=2)
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=radius, fill=CODE_BG + (255,), outline=EDGE, width=2)
     for i, color in enumerate([(255, 95, 86), (255, 189, 46), (39, 201, 63)]):
         draw.ellipse((24 + i * 28, 20, 40 + i * 28, 36), fill=color)
     if title:
@@ -211,7 +218,8 @@ def hero():
     phone_xy = (540, computer_y + computer.height - 140)
     place(canvas, device, phone_xy)
     label = pill("Running in RR Pocket")
-    label_xy = (phone_xy[0] - label.width + 90, phone_xy[1] + 560)
+    # Left of the phone, clear of its screen.
+    label_xy = (phone_xy[0] - label.width - 24, phone_xy[1] + 560)
     link(canvas, 330, computer_y + computer.height - 6, label_xy[1] - 6)
     place(canvas, label, label_xy)
     save(canvas, "1-your-app")
@@ -231,16 +239,22 @@ def link(canvas, x, top, bottom):
 
 
 def pairing():
-    canvas, y = captioned("No Android SDK.\nNo adb.", "Pair once over Wi-Fi. That's the setup.")
-    device = phone(capture("home_light"), 620)
+    """The phone's pairing card, and the two commands that use it, with the
+    address and code the phone showed (capture_store_screens.py saves them)."""
+    shown = json.loads((CAPTURES / "pairing.json").read_text())
+    canvas, y = captioned("No Android SDK.\nNo adb.", "Install, pair once over Wi-Fi. That's the setup.")
+    device = phone(capture("home_light"), 560)
     place(canvas, device, ((1080 - device.width) // 2, y + 70))
-    card, draw = window("Terminal", 980, 200)
+    card, draw = window("Terminal", 980, 250)
     code_lines(draw, [
-        [("$ ", AMBER), ("pocket pair 10.0.2.16 FXSLEDDB", WHITE)],
-        [plain("Paired with RR Pocket.")],
-    ], 28, 74, 25, 52, numbers=False)
-    place(canvas, card, ((1080 - card.width) // 2, 1500))
-    place(canvas, pill("On your computer, once"), (50, 1462), shadow=False)
+        [("$ ", AMBER), ("dart pub global activate rr_pocket", WHITE)],
+        [("$ ", AMBER), (f"pocket pair {shown['address']} {shown['code']}", WHITE)],
+        [plain(f"Paired with RR Pocket at {shown['address']}.")],
+    ], 28, 70, 25, 52, numbers=False)
+    card_y = 1920 - card.height - 90
+    label = pill("On your computer, once")
+    place(canvas, card, ((1080 - card.width) // 2, card_y))
+    place(canvas, label, ((1080 - label.width) // 2, card_y - label.height - 16), shadow=False)
     save(canvas, "2-no-sdk")
 
 
@@ -284,10 +298,105 @@ def reload():
 
 
 def plugins():
-    canvas, y = captioned("26 plugins built in", "Camera, location, notifications, storage.")
+    canvas, y = captioned("29 plugins built in", "Camera, location, notifications, storage.")
     device = phone(capture("plugins_dark"), 640)
     place(canvas, device, ((1080 - device.width) // 2, y + 70))
     save(canvas, "5-plugins")
+
+
+# Lumide's Ailurus Dark theme (lumide/apps/lumide_desktop/assets/themes).
+AIL_PANEL = (23, 27, 30)
+AIL_LINE = (28, 33, 36)
+AIL_BORDER = (20, 24, 26)
+AIL_TEXT = (228, 225, 219)
+AIL_DIM = (116, 131, 139)
+AIL_ORANGE = (214, 93, 46)
+AIL_STRING = (135, 179, 121)
+AIL_CLASS = (216, 162, 94)
+AIL_FUNCTION = (56, 158, 202)
+AIL_PROPERTY = (199, 146, 234)
+
+AILURUS_SOURCE = [
+    [("import ", AIL_ORANGE), ("'package:flutter/material.dart'", AIL_STRING), (";", AIL_TEXT)],
+    [],
+    [("const ", AIL_ORANGE), ("accent = ", AIL_TEXT), ("Color", AIL_CLASS), ("(", AIL_TEXT),
+     ("0xFF2E7D6B", AIL_ORANGE), (");", AIL_TEXT)],
+    [],
+    [("void ", AIL_ORANGE), ("main", AIL_FUNCTION), ("() => ", AIL_TEXT), ("runApp", AIL_FUNCTION),
+     ("(", AIL_TEXT), ("const ", AIL_ORANGE), ("TrailsApp", AIL_CLASS), ("());", AIL_TEXT)],
+    [],
+    [("class ", AIL_ORANGE), ("TrailsApp ", AIL_CLASS), ("extends ", AIL_ORANGE),
+     ("StatelessWidget ", AIL_CLASS), ("{", AIL_TEXT)],
+    [("  Widget ", AIL_CLASS), ("build", AIL_FUNCTION), ("(context) => ", AIL_TEXT),
+     ("MaterialApp", AIL_CLASS), ("(", AIL_TEXT)],
+    [("    theme", AIL_PROPERTY), (": ", AIL_TEXT), ("ThemeData", AIL_CLASS), ("(", AIL_TEXT),
+     ("colorSchemeSeed", AIL_PROPERTY), (": accent),", AIL_TEXT)],
+    [("    home", AIL_PROPERTY), (": ", AIL_TEXT), ("const ", AIL_ORANGE), ("ExplorePage", AIL_CLASS),
+     ("(),", AIL_TEXT)],
+    [("  );", AIL_TEXT)],
+    [("}", AIL_TEXT)],
+]
+
+AILURUS_OUTPUT = [
+    [("$ ", AMBER), ("flutter run -d pocket", AIL_TEXT)],
+    [("Launching ", AIL_DIM), ("lib/main.dart", AIL_ORANGE), (" on RR Pocket...", AIL_DIM)],
+    [("Syncing files to device RR Pocket...", AIL_DIM)],
+    [("App is running.", AIL_TEXT)],
+]
+
+
+def lumide_window(width, height):
+    """The project in Lumide, in its Ailurus Dark colours, drawn like the
+    other windows: the code, then the run on RR Pocket."""
+    card = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(card)
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=28, fill=AIL_PANEL, outline=EDGE, width=2)
+    for i, color in enumerate([(255, 95, 86), (255, 189, 46), (39, 201, 63)]):
+        draw.ellipse((24 + i * 28, 22, 40 + i * 28, 38), fill=color)
+    draw.text((width / 2, 30), "Lumide — trails", font=font("SemiBold", 22), fill=AIL_DIM, anchor="mm")
+    chip_font = font("Bold", 22)
+    chip_w = round(chip_font.getlength("RR Pocket")) + 40
+    chip = (width - chip_w - 22, 12, width - 22, 48)
+    draw.rounded_rectangle(chip, radius=18, fill=AIL_LINE, outline=AMBER, width=3)
+    draw.text(((chip[0] + chip[2]) / 2, 30), "RR Pocket", font=chip_font, fill=AIL_TEXT, anchor="mm")
+    draw.line((0, 60, width, 60), fill=AIL_BORDER, width=2)
+
+    code = mono(21)
+    y = 86
+    for index, line in enumerate(AILURUS_SOURCE):
+        draw.text((58, y), f"{index + 1:>2}", font=code, fill=AIL_DIM, anchor="ra")
+        x = 84
+        for text, color in line:
+            draw.text((x, y), text, font=code, fill=color)
+            x += code.getlength(text)
+        y += 34
+    draw.line((0, y + 10, width, y + 10), fill=AIL_BORDER, width=2)
+    draw.text((28, y + 28), "OUTPUT", font=font("Bold", 16), fill=AIL_DIM)
+    y += 62
+    for line in AILURUS_OUTPUT:
+        x = 28
+        for text, color in line:
+            draw.text((x, y), text, font=mono(20), fill=color)
+            x += mono(20).getlength(text)
+        y += 34
+    return card
+
+
+def lumide():
+    """Running from Lumide: its window, and the app on the phone."""
+    canvas, y = captioned("Or run it\nfrom Lumide", "Pick RR Pocket. Press Run.")
+    window_y = y + 130
+    ide = lumide_window(1000, 710)
+    place(canvas, ide, (40, window_y))
+    label = pill("Your phone, a device", dark=True)
+    # Right-aligned with the window, above its RR Pocket chip.
+    place(canvas, label, (40 + 1000 - label.width, window_y - 84), shadow=False)
+    device = phone(capture("demo"), 380)
+    phone_y = window_y + 600
+    place(canvas, device, (1080 - device.width - 40, phone_y))
+    label = pill("Your app, on RR Pocket")
+    place(canvas, label, (1080 - device.width - 40 - label.width - 24, phone_y + 420))
+    save(canvas, "6-lumide")
 
 
 def feature_graphic():
@@ -323,6 +432,7 @@ pairing()
 command()
 reload()
 plugins()
+lumide()
 feature_graphic()
 # Play wants the icon as a 32-bit PNG.
 Image.open(ROOT / "branding/icon-512.png").convert("RGBA").save(OUT / "icon-512.png")
