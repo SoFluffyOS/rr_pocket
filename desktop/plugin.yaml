@@ -1,0 +1,28 @@
+id: rr_pocket
+name: 'RR Pocket'
+description: 'Run your Flutter app on your Android phone over Wi-Fi, with no Android SDK'
+entry_point: 'bin/main.dart'
+
+activation_events:
+  - 'workspaceContains:pubspec.yaml'
+  - 'onCommand:rr_pocket.pair'
+  - 'onCommand:rr_pocket.pin'
+  - 'onCommand:rr_pocket.showPhone'
+
+permissions:
+  - fileSystem:
+      - '${workspace}/**'
+  - shell:
+      - flutter
+
+contributes:
+  commands:
+    - id: rr_pocket.pair
+      title: 'RR Pocket: Pair with Phone'
+      category: 'RR Pocket'
+    - id: rr_pocket.pin
+      title: 'RR Pocket: Match Plugin Versions'
+      category: 'RR Pocket'
+    - id: rr_pocket.showPhone
+      title: 'RR Pocket: Show Phone'
+      category: 'RR Pocket'

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Every check that needs no phone: analysis, the app's Flutter tests, the
-# Kotlin tests (pairing code, control server). Exits non-zero on any failure,
+# desktop package's tests (pocket command, Lumide plugin), the Kotlin tests
+# (pairing code, control server). Exits non-zero on any failure,
 # read from the results, not from a pipeline's exit code.
 #
 # Usage: tool/check.sh
@@ -16,7 +17,7 @@ fi
 cd "$root/app"
 flutter analyze
 flutter test --reporter expanded
-dart analyze "$root/tool/pocket.dart"
+(cd "$root/desktop" && dart pub get >/dev/null && dart analyze && dart test)
 (cd "$root/probe" && flutter analyze)
 
 rm -rf build/app/test-results/testDebugUnitTest

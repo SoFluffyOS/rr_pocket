@@ -1,0 +1,247 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:lumide_api/lumide_api.dart' show MessageType;
+import 'package:rr_pocket/rr_pocket.dart';
+import 'package:test/test.dart';
+
+import 'support/fake_host.dart';
+import 'support/fake_phone.dart';
+
+void main() {
+  late Directory temp;
+  late FakePhone phone;
+  late FakeHost host;
+  late PocketConfig config;
+  late PocketCommands commands;
+
+  setUp(() async {
+    temp = await Directory.systemTemp.createTemp('rr_pocket_test');
+    phone = await FakePhone.start(plugins: {'camera': '0.12.1'});
+    host = FakeHost(workspaceFolder: temp.path);
+    config = PocketConfig('${temp.path}/config');
+    commands = PocketCommands(
+      host,
+      config: config,
+      statusBar: StatusBarService(host),
+      projects: ProjectPicker(host),
+      helperCommand: () async => ['dart', '/src/bin/pocket.dart'],
+    );
+  });
+
+  tearDown(() async {
+    await phone.close();
+    await temp.delete(recursive: true);
+  });
+
+  Future<void> savePairing({String? code}) =>
+      Phone('127.0.0.1', phone.port, code ?? phone.code).save(config);
+
+  /// A resolved Flutter project in the workspace, using camera 0.12.0.
+  Future<String> addProject(String name) async {
+    final project = Directory('${temp.path}/$name');
+    await project.create(recursive: true);
+    await File('${project.path}/pubspec.yaml').writeAsString(
+      'name: $name\ndependencies:\n  flutter:\n    sdk: flutter\n',
+    );
+    await File('${project.path}/pubspec.lock').writeAsString(
+      'packages:\n  camera:\n    source: hosted\n    version: "0.12.0"\n',
+    );
+    host.workspace.files
+        .add(Uri.file('${project.path}/pubspec.lock').toString());
+    return project.path;
+  }
+
+  List<String> messages(MessageType type) => [
+        for (final (messageType, text) in host.window.messages)
+          if (messageType == type) text,
+      ];
+
+  group('pair', () {
+    test('saves the phone and registers the pocket device', () async {
+      host.window.inputs.addAll(['127.0.0.1:${phone.port}', '1234-5678']);
+
+      await commands.pair();
+
+      final saved = jsonDecode(await config.deviceFile.readAsString());
+      expect(
+          saved, {'host': '127.0.0.1', 'port': phone.port, 'code': '12345678'});
+      final ran = [
+        for (final run in host.shell.ran) run.command.take(3).join(' ')
+      ];
+      expect(ran, [
+        'flutter config --enable-custom-devices',
+        'flutter custom-devices delete',
+        'flutter custom-devices add',
+      ]);
+      final added = host.shell.ran.last.command.last;
+      final device = jsonDecode(added.substring('--json='.length)) as Map;
+      expect(device['ping'], ['dart', '/src/bin/pocket.dart', 'ping']);
+      expect(host.statusBar.items.values.single.$1, 'Test Phone');
+      expect(messages(MessageType.info).single,
+          startsWith('Paired with Test Phone'));
+    });
+
+    test('stops at an address that is not one', () async {
+      host.window.inputs.addAll(['http://phone', '1234']);
+
+      await commands.pair();
+
+      expect(messages(MessageType.error).single, contains('is not an address'));
+      expect(host.shell.ran, isEmpty);
+      expect(config.deviceFile.existsSync(), isFalse);
+    });
+
+    test('does nothing when the user dismisses a box', () async {
+      host.window.inputs.addAll(['127.0.0.1:${phone.port}', null]);
+
+      await commands.pair();
+
+      expect(host.window.messages, isEmpty);
+      expect(config.deviceFile.existsSync(), isFalse);
+    });
+
+    test('keeps no pairing the phone refused', () async {
+      host.window.inputs.addAll(['127.0.0.1:${phone.port}', '0000']);
+
+      await expectLater(
+        commands.pair(),
+        throwsA(isA<PocketException>().having(
+          (e) => e.message,
+          'message',
+          contains('refused the pairing code'),
+        )),
+      );
+      expect(config.deviceFile.existsSync(), isFalse);
+      expect(host.shell.ran, isEmpty);
+    });
+  });
+
+  group('pin', () {
+    test('writes the overrides and resolves', () async {
+      await savePairing();
+      final project = await addProject('app');
+
+      await commands.pin();
+
+      final overrides =
+          await File('$project/pubspec_overrides.yaml').readAsString();
+      expect(overrides, contains('  camera: 0.12.1\n'));
+      expect(host.shell.ran.single.command, ['flutter', 'pub', 'get']);
+      expect(host.shell.ran.single.workingDirectory, project);
+      expect(messages(MessageType.info).single, startsWith('Pinned 1 plugins'));
+    });
+
+    test('asks which project when there are several, the open one first',
+        () async {
+      await savePairing();
+      await addProject('a_app');
+      final open = await addProject('b_app');
+      host.editor.activeUri = Uri.file('$open/lib/main.dart').toString();
+      host.window.pickPayload = open;
+
+      await commands.pin();
+
+      expect([
+        for (final item in host.window.lastPick) item.payload
+      ], [
+        open,
+        '${temp.path}/a_app',
+      ]);
+      expect(File('$open/pubspec_overrides.yaml').existsSync(), isTrue);
+      expect(File('${temp.path}/a_app/pubspec_overrides.yaml').existsSync(),
+          isFalse);
+    });
+
+    test('leaves overrides it did not write', () async {
+      await savePairing();
+      final project = await addProject('app');
+      final overrides = File('$project/pubspec_overrides.yaml');
+      await overrides.writeAsString('dependency_overrides:\n  path: 1.9.0\n');
+
+      await expectLater(
+        commands.pin(),
+        throwsA(isA<PocketException>().having(
+          (e) => e.message,
+          'message',
+          allOf(contains('not ours'), contains('camera: 0.12.1')),
+        )),
+      );
+      expect(await overrides.readAsString(),
+          'dependency_overrides:\n  path: 1.9.0\n');
+      expect(host.shell.ran, isEmpty);
+    });
+
+    test('reports a failed pub get', () async {
+      await savePairing();
+      await addProject('app');
+      host.shell.exitCodes['flutter pub get'] = 1;
+
+      await expectLater(commands.pin(), throwsA(isA<PocketException>()));
+    });
+
+    test('offers to pair first', () async {
+      await addProject('app');
+
+      await commands.pin();
+
+      expect(host.window.confirmations.single, contains('not paired yet'));
+      expect(host.shell.ran, isEmpty);
+    });
+
+    test('skips build output and projects that are not Flutter', () async {
+      await savePairing();
+      await addProject('app');
+      final copy = Directory('${temp.path}/app/build/copy')
+        ..createSync(recursive: true);
+      File('${copy.path}/pubspec.lock').writeAsStringSync('packages:\n');
+      File('${copy.path}/pubspec.yaml').writeAsStringSync(
+        'dependencies:\n  flutter:\n    sdk: flutter\n',
+      );
+      host.workspace.files
+          .add(Uri.file('${copy.path}/pubspec.lock').toString());
+      final dartOnly = Directory('${temp.path}/cli')..createSync();
+      File('${dartOnly.path}/pubspec.lock').writeAsStringSync('packages:\n');
+      File('${dartOnly.path}/pubspec.yaml').writeAsStringSync('name: cli\n');
+      host.workspace.files
+          .add(Uri.file('${dartOnly.path}/pubspec.lock').toString());
+
+      expect(await ProjectPicker(host).flutterProjects(), ['${temp.path}/app']);
+    });
+  });
+
+  group('show phone', () {
+    test('shows the phone that answers', () async {
+      await savePairing();
+
+      await commands.showPhone();
+
+      expect(
+        messages(MessageType.info).single,
+        'Test Phone at 127.0.0.1:${phone.port}: Flutter 3.47.7, 1 plugins.',
+      );
+    });
+
+    test('offers to pair again when the phone does not answer', () async {
+      await savePairing();
+      await phone.close();
+
+      await commands.showPhone();
+
+      expect(
+          host.window.confirmations.single,
+          allOf(
+            contains('did not answer'),
+            contains('Pair again?'),
+          ));
+      expect(host.statusBar.items.values.single.$1, 'RR Pocket');
+    });
+
+    test('offers to pair, and hides the status item, before pairing', () async {
+      await commands.showPhone();
+
+      expect(host.window.confirmations.single, contains('not paired yet'));
+      expect(host.statusBar.items, isEmpty);
+    });
+  });
+}

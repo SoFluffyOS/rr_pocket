@@ -11,7 +11,8 @@ import re
 import sys
 from pathlib import Path
 
-# The same header as tool/pocket.dart pin writes, so either may replace it.
+# The same header as `pocket pin` writes (desktop/lib/src/constants.dart), so
+# either may replace the other's.
 HEADER = "# Written by RR Pocket (dart pocket.dart pin)"
 app = Path(__file__).resolve().parent.parent / "app"
 project = Path(sys.argv[1])

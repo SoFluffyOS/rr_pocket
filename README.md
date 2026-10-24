@@ -43,20 +43,32 @@ is signed again. The home screen shows the Flutter version it stamps in.
 
 ## Use it
 
+Install the `pocket` command, from this private repo until the package
+is on pub.dev:
+
+```sh
+dart pub global activate --source git https://github.com/simonpham/rr_pocket.git --git-path desktop
+```
+
 On the phone, open RR Pocket. It shows its address and a pairing code. On
 the computer, once:
 
 ```sh
-dart tool/pocket.dart pair <address> <code>
+pocket pair <address> <code>
 ```
 
 That registers the `pocket` device with your Flutter SDK. Then, from any
 project:
 
 ```sh
-dart <rr_pocket>/tool/pocket.dart pin   # match RR Pocket's plugin versions
+pocket pin              # match RR Pocket's plugin versions
 flutter run -d pocket
 ```
+
+The same package is a Lumide plugin: Lumide loads it at its next start,
+and RR Pocket shows in its device list after pairing. In Lumide, **RR Pocket:
+Pair with Phone** and **RR Pocket: Match Plugin Versions** do the two steps
+above (`desktop/README.md`).
 
 The project's Flutter version must be RR Pocket's (the home screen says
 which), and its plugins the versions RR Pocket carries; `flutter run` stops
@@ -91,11 +103,14 @@ the new APK and run `tool/run_probe.sh`; it fails on any `MISSING`.
   (needs Pillow).
 - `probe/`, `tool/run_probe.sh`: calls every bundled plugin, to check a build.
 - `docs/plugins.md`: which plugins to bundle and why, and what Tier 1 cost.
-- `tool/pin_plugins.py`: `pocket.dart pin` from this checkout, without a
+- `tool/pin_plugins.py`: `pocket pin` from this checkout, without a
   phone (used for `probe/`).
 - `app/android/.../pocket/`: the Kotlin side a computer talks to: the
   pairing code, the control server, the VM service relay.
-- `tool/pocket.dart`: the computer's side, behind the `pocket` device.
+- `desktop/`: the computer's side, the `rr_pocket` package: the `pocket`
+  command behind the `pocket` device, and the Lumide plugin. From a
+  checkout: `dart pub global activate --source path desktop`, or in Lumide,
+  Plugins → Load Local Plugin → `desktop/`.
 - `docs/wifi.md`: how `flutter run -d pocket` works, and what it took.
 - `tool/drive_attach.py`: the adb-based spike driver: attaches from a
   project, restarts into it, edits, hot reloads, and times both.

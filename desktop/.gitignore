@@ -1,0 +1,6 @@
+.dart_tool/
+/build/
+# A package, not an app: users resolve their own.
+/pubspec.lock
+# Local dependency overrides
+pubspec_overrides.yaml

@@ -8,8 +8,8 @@ Built and checked 2026-10-24 on the Android emulator, Flutter 3.47.7.
 computer                                   phone (RR Pocket)
 flutter run -d pocket
   └ build bundle (kernel + assets)
-  └ pocket.dart install ──PUT /bundle/*──▶ control server :8100 (Kotlin)
-  └ pocket.dart run ─────POST /run───────▶   runInView(bundle) on its own
+  └ pocket install ──────PUT /bundle/*──▶ control server :8100 (Kotlin)
+  └ pocket run ──────────POST /run───────▶   runInView(bundle) on its own
                                               VM service, over HTTP
     prints the VM service's address  ◀───── {"vmPath": "/<auth>/"}
     streams GET /logs ◀───────────────────   tails its own log, tag flutter
@@ -28,9 +28,11 @@ flutter run -d pocket
   for; `runInView` uses the running engine's, so `install` skips them.
 - **The VM service listens on 127.0.0.1 only.** A byte-for-byte TCP relay
   on :8101 makes it reachable; HTTP, WebSockets and DDS all go through.
-- **`flutter run` is stock.** `pocket.dart pair` registers a custom device
-  whose commands are `pocket.dart ping | install | run | uninstall`, run by
-  the `dart` that ships with Flutter. `run` prints "The Dart VM service is
+- **`flutter run` is stock.** `pocket pair` registers a custom device
+  whose commands are `pocket ping | install | run | uninstall`, run by
+  the `dart` that paired. Installed with `dart pub global activate`, Flutter
+  calls it as `dart pub global run rr_pocket:pocket` (0.36 s a call), not
+  by the snapshot pub runs, whose name changes with each Dart version. `run` prints "The Dart VM service is
   listening on http://<phone>:8101/<auth>/", which is how the tool finds it,
   then the app's log lines, which is how the tool shows them.
 - **Versions.** `/hello` reports the Flutter version and engine revision
@@ -44,7 +46,7 @@ flutter run -d pocket
 `/hello` lists the Android plugin packages and versions the build carries
 (`tool/build_apk.sh` writes them into the APK's assets). Before sending a
 bundle, `install` compares them with the project's `pubspec.lock`: a version
-that differs stops the run with the list and "run `dart pocket.dart pin`";
+that differs stops the run with the list and "run `pocket pin`";
 a plugin RR Pocket lacks is a warning. `pin` writes the project's
 `pubspec_overrides.yaml` from the phone's list and runs `flutter pub get`.
 
@@ -106,5 +108,3 @@ build cache; the network is `adb forward` of :8100 and :8101 only.
   1 on the way), and whether phones' Wi-Fi isolation blocks :8100.
 - Finding the phone without typing its address (mDNS, as Lumide's sharing
   does).
-- `pocket.dart` lives in this repo; it wants to be a pub package or part of
-  Lumide's Raccoon tooling.
