@@ -75,6 +75,8 @@ the new APK and run `tool/run_probe.sh`; it fails on any `MISSING`.
   font (SIL Open Font License, `OFL.txt`).
 - `branding/`: the Play icon and the screenshot.
 - `tool/build_apk.sh`: the build above.
+- `tool/check.sh`: every check that needs no phone (analysis, Flutter
+  tests, Kotlin tests for the pairing code and the control server).
 - `tool/make_icons.py`: draws the R² launcher icons from Nunito ExtraBold
   (needs Pillow).
 - `probe/`, `tool/run_probe.sh`: calls every bundled plugin, to check a build.
