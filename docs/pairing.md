@@ -43,6 +43,10 @@ at most 60 seconds:
 | 403 | `{"error": "pairing refused on the phone"}` | the user refused |
 | 408 | `{"error": "no answer on the phone"}` | 60 seconds passed |
 | 409 | `{"error": "…"}` | another request is waiting, or a project is running (RR Pocket's own screen is not showing) |
+| 429 | `{"error": "…"}` | the phone said no, or nobody answered, in the last 30 seconds |
+
+The question shows the address the request came from, so a name alone
+can't pass for someone's computer.
 
 `computer` is shown as given, cut to 64 characters. The computer waits up to
 70 seconds for the answer.
@@ -56,7 +60,10 @@ code holding:
 rrpocket://pair?v=1&hosts=192.168.1.5,10.0.0.3&port=53123&token=<token>&name=<computer>
 ```
 
-- `hosts`: the computer's site-local IPv4 addresses, best first.
+- `hosts`: the computer's site-local IPv4 addresses, best first. The phone
+  posts only to private (10/8, 172.16/12, 192.168/16) or link-local
+  (169.254/16) addresses: any page or app can open a link, and the code
+  must not leave the network, nor reach another app on the phone.
 - `token`: 128 random bits, base64url without padding; good for one
   pairing, and only while the code is shown.
 - `name`: the computer's name, URL-encoded.
@@ -67,7 +74,8 @@ The same URI opens RR Pocket from the phone's camera app. Either way the
 phone asks first: "Pair with Simon's MacBook Pro?". A QR code anyone could
 have shown must not send the pairing code without that tap.
 
-Then the phone tries each host in turn, 5 seconds each:
+Then the phone tries each host in turn: 5 seconds to connect, then up to 20 to
+answer (the computer first checks the phone's `/hello`, up to 10 seconds):
 
 ```
 POST http://<host>:<port>/pair

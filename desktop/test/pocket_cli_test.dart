@@ -220,6 +220,19 @@ void main() {
       expect(isarPhone.bundle, isEmpty);
     });
 
+    test('install leaves out plugins only another member uses', () async {
+      File('${app.path}/.flutter-plugins-dependencies').writeAsStringSync(
+        '{"plugins": {"android": [], "ios": []}}',
+      );
+
+      expect(
+        await workspaceCli(
+            ['install', '${app.path}/build/flutter_assets', 'mcu']),
+        0,
+      );
+      expect(isarPhone.bundle.keys, contains('kernel_blob.bin'));
+    });
+
     test('pin writes the overrides at the root, the family included', () async {
       final hello =
           await Phone('127.0.0.1', isarPhone.port, isarPhone.code).hello();

@@ -120,6 +120,10 @@ sdks:
       expect(isBreakingChange('0.11.0', '0.12.1'), isTrue);
       expect(isBreakingChange('0.12.0', '0.12.1'), isFalse);
       expect(isBreakingChange('1.0.2', '1.0.4+1'), isFalse);
+      expect(isBreakingChange('1.2.3', '1.2.4'), isFalse);
+      expect(isBreakingChange('0.0.1', '0.0.2'), isTrue);
+      expect(isBreakingChange('3.4.1', '3.3.2'), isTrue);
+      expect(isBreakingChange('2.5.6', '2.5.3'), isTrue);
       expect(isBreakingChange('main', 'main'), isFalse);
       expect(isBreakingChange('main', '1.0.0'), isTrue);
     });

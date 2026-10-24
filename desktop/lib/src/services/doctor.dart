@@ -118,7 +118,7 @@ List<DoctorCheck> _projectChecks(
   Directory project,
   Map<String, Object?>? hello,
 ) {
-  final used = usedVersions(project);
+  final used = lockedVersions(project);
   if (used == null) {
     return const [
       DoctorCheck(
@@ -130,7 +130,7 @@ List<DoctorCheck> _projectChecks(
   }
   if (hello == null) return const [];
   final check = PluginCheck.compare(
-    carried: bundledPlugins(hello),
+    carried: carriedFor(bundledPlugins(hello), project),
     used: used,
     android: androidPlugins(project) ?? const [],
   );

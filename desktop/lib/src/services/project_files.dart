@@ -68,6 +68,40 @@ List<String>? androidPlugins(Directory project) {
   return parseAndroidPlugins(file.readAsStringSync());
 }
 
+/// Every plugin package the project itself resolves, on any platform, from
+/// Flutter's `.flutter-plugins-dependencies`; null before `flutter pub get`.
+/// In a pub workspace the lock is shared, so this says which of its plugins
+/// are this member's.
+Set<String>? projectPlugins(Directory project) {
+  final file = File(
+    '${project.path}${Platform.pathSeparator}.flutter-plugins-dependencies',
+  );
+  if (!file.existsSync()) return null;
+  final json = jsonDecode(file.readAsStringSync());
+  if (json is! Map || json['plugins'] is! Map) return null;
+  return {
+    for (final platform in (json['plugins'] as Map).values)
+      if (platform is List)
+        for (final plugin in platform)
+          if (plugin is Map && plugin['name'] is String)
+            plugin['name'] as String,
+  };
+}
+
+/// The plugins RR Pocket carries that [project] uses, by its own plugin
+/// list when it has one: a pub workspace's lock holds every member's.
+Map<String, String> carriedFor(
+  Map<String, String> carried,
+  Directory project,
+) {
+  final mine = projectPlugins(project);
+  if (mine == null) return carried;
+  return {
+    for (final MapEntry(key: name, value: version) in carried.entries)
+      if (mine.contains(name)) name: version,
+  };
+}
+
 /// The running Flutter SDK's versions, from FLUTTER_ROOT (set by the tool).
 Map<String, Object?>? sdkVersions(Map<String, String> environment) {
   final root = environment['FLUTTER_ROOT'];

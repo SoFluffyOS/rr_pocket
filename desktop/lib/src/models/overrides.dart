@@ -46,24 +46,37 @@ Map<String, String> pinsFor({
 }) =>
     planPins(carried: carried, used: used, all: true).pins;
 
-/// Whether going from version [from] to [to] can break code, by semver: a
-/// different major version, or for 0.x a different minor. Versions that
-/// don't parse count as breaking.
+/// Whether going from version [from] to [to] can break code, by semver as
+/// pub reads it: a different major version, for 0.x a different minor, for
+/// 0.0.x a different patch. Going down counts too, since it can take away
+/// what the project uses. Versions that don't parse count as breaking.
 bool isBreakingChange(String from, String to) {
-  final a = _majorMinor(from);
-  final b = _majorMinor(to);
+  final a = _version(from);
+  final b = _version(to);
   if (a == null || b == null) return from != to;
+  if (_compare(b, a) < 0) return true;
   if (a.$1 != b.$1) return true;
-  return a.$1 == 0 && a.$2 != b.$2;
+  if (a.$1 == 0 && a.$2 != b.$2) return true;
+  return a.$1 == 0 && a.$2 == 0 && a.$3 != b.$3;
 }
 
-(int, int)? _majorMinor(String version) {
-  final match = RegExp(r'^(\d+)\.(\d+)').firstMatch(version);
+(int, int, int)? _version(String version) {
+  final match = RegExp(r'^(\d+)\.(\d+)\.(\d+)').firstMatch(version);
   if (match == null) return null;
-  final major = int.tryParse(match.group(1) ?? '');
-  final minor = int.tryParse(match.group(2) ?? '');
-  if (major == null || minor == null) return null;
-  return (major, minor);
+  final parts = [
+    for (final group in [match.group(1), match.group(2), match.group(3)])
+      int.tryParse(group ?? ''),
+  ];
+  if (parts case [final major?, final minor?, final patch?]) {
+    return (major, minor, patch);
+  }
+  return null;
+}
+
+int _compare((int, int, int) a, (int, int, int) b) {
+  if (a.$1 != b.$1) return a.$1.compareTo(b.$1);
+  if (a.$2 != b.$2) return a.$2.compareTo(b.$2);
+  return a.$3.compareTo(b.$3);
 }
 
 /// [breaking], one per line, for a message.

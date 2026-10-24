@@ -379,9 +379,9 @@ void checkEngine(Map<String, Object?> hello, Map<String, Object?>? sdk) {
 /// Stops on plugin versions that differ from RR Pocket's, and warns about
 /// plugins it lacks.
 void checkPlugins(Map<String, Object?> hello, Directory project) {
-  final carried = bundledPlugins(hello);
+  final carried = carriedFor(bundledPlugins(hello), project);
   final used = lockedVersions(project);
-  if (carried.isEmpty) return;
+  if (bundledPlugins(hello).isEmpty) return;
   if (used == null) {
     stderr.writeln(
       'RR Pocket: found no pubspec.lock for ${project.path}, so plugin '

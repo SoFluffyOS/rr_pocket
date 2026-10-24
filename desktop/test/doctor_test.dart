@@ -94,6 +94,27 @@ void main() {
     expect(checks[2].fix, contains('pocket pair'));
   });
 
+  test('after a pin, the project matches', () async {
+    await pairAndRegister();
+    final project = Directory('${temp.path}/app')..createSync();
+    File('${project.path}/pubspec.yaml').writeAsStringSync('name: app\n');
+    File('${project.path}/pubspec.lock').writeAsStringSync(
+      'packages:\n  camera:\n    source: hosted\n    version: "0.12.0"\n',
+    );
+    final hello = await Phone('127.0.0.1', phone.port, phone.code).hello();
+    await writePins(hello, project);
+    // pub get locks the pin.
+    File('${project.path}/pubspec.lock').writeAsStringSync(
+      'packages:\n  camera:\n    source: hosted\n    version: "0.12.1"\n',
+    );
+
+    final checks =
+        await runDoctor(config: config, flutter: flutter, project: project);
+
+    expect(states(checks), everyElement(DoctorState.ok));
+    expect(checks.last.found, contains('match'));
+  });
+
   test("a project's plugins: to pin, breaking, missing", () async {
     await pairAndRegister();
     final project = Directory('${temp.path}/app')..createSync();
@@ -104,7 +125,8 @@ void main() {
       '  flutter_secure_storage:\n    source: hosted\n    version: "10.3.1"\n',
     );
     File('${project.path}/.flutter-plugins-dependencies').writeAsStringSync(
-      '{"plugins": {"android": [{"name": "ffmpeg_kit_flutter_new"}]}}',
+      '{"plugins": {"android": [{"name": "camera"}, '
+      '{"name": "flutter_secure_storage"}, {"name": "ffmpeg_kit_flutter_new"}]}}',
     );
 
     final checks =
