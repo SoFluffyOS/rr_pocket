@@ -1,29 +1,30 @@
 # RR Pocket
 
 Run your Flutter app on your Android phone with just the Flutter SDK. No
-Android SDK, no Gradle build. Like Expo Go, for Flutter.
+Android SDK, no adb, no Gradle build. Like Expo Go, for Flutter.
 
 ![RR Pocket, light and dark](branding/screenshot.png)
 
 RR Pocket is an Android app with Flutter's debug engine and a set of plugins
-built in. The Flutter tool compiles your project and sends it over; the app
-restarts into it. Hot reload works as usual.
+built in. `flutter run -d pocket` compiles your project and sends it over
+Wi-Fi; the app restarts into it. Hot reload works as usual.
 
 Private for now. Design and decisions: note 025 in `project_raccoon`.
 
 ## Status
 
-The spike passed on the Android emulator (Flutter 3.47.7, 2026-10-24):
+Works on the Android emulator (Flutter 3.47.7, 2026-10-24):
 
-- A project with no `android/` folder runs in the prebuilt app. Launch
-  579-821 ms, hot reload 173-211 ms.
-- All 26 plugins the app carries answer from such a project, with no change
-  to its code (`docs/plugins.md`). The arm64 APK is 84.2 MB.
+- **`flutter run -d pocket` over the network, no adb.** A project with no
+  `android/` folder launches in 4.7-6.6 s (build, upload, start); hot reload
+  0.34-0.50 s, hot restart 1.0-1.1 s; its `print` output shows in
+  `flutter run`; quitting returns the phone to RR Pocket's screen.
+- All 26 plugins the app carries answer, with no change to the project's
+  code (`docs/plugins.md`). The arm64 APK is 84.2 MB.
 - **The app ships non-debuggable, as Play requires, and the debug engine
   still runs.**
 
-Next: reach the phone over Wi-Fi with no adb, as a custom device
-(`flutter run -d pocket`).
+Not yet tried on a real phone over real Wi-Fi.
 
 ## Build
 
@@ -38,23 +39,28 @@ Flutter's Gradle plugin ties the engine to the debuggable flag, so the script
 builds debug, then `tool/undebug_manifest.py` turns the flag off and the APK
 is signed again. The home screen shows the Flutter version it stamps in.
 
-## Try it
+## Use it
+
+On the phone, open RR Pocket. It shows its address and a pairing code. On
+the computer, once:
 
 ```sh
-adb install build/rr_pocket-x64.apk
-adb shell am start -n io.sofluffy.raccoon.runtime.pocket/.MainActivity
-adb logcat | grep 'VM service'     # copy the URL
-python3 tool/drive_attach.py <project> <URL> [device]
+dart tool/pocket.dart pair <address> <code>
 ```
 
-The project needs no code change. Its plugins must be pinned to the versions
-RR Pocket carries:
+That registers the `pocket` device with your Flutter SDK. Then, from any
+project:
 
 ```sh
-python3 tool/pin_plugins.py <project> && (cd <project> && flutter pub get)
+python3 tool/pin_plugins.py . && flutter pub get   # match RR Pocket's plugins
+flutter run -d pocket
 ```
 
-`probe/` is such a project: it calls every bundled plugin and logs
+The project's Flutter version must be RR Pocket's (the home screen says
+which); `flutter run` stops with a message when it isn't. How it works:
+`docs/wifi.md`.
+
+`probe/` is a project that calls every bundled plugin and logs
 `PROBE <plugin> ok …` or `MISSING`. After changing the plugin set, install
 the new APK and run `tool/run_probe.sh`; it fails on any `MISSING`.
 
@@ -73,5 +79,9 @@ the new APK and run `tool/run_probe.sh`; it fails on any `MISSING`.
 - `docs/plugins.md`: which plugins to bundle and why, and what Tier 1 cost.
 - `tool/pin_plugins.py`: pins a project to the plugin versions RR Pocket
   carries.
-- `tool/drive_attach.py`: attaches from a project, restarts into it, edits,
-  hot reloads, and times both.
+- `app/android/.../pocket/`: the Kotlin side a computer talks to: the
+  pairing code, the control server, the VM service relay.
+- `tool/pocket.dart`: the computer's side, behind the `pocket` device.
+- `docs/wifi.md`: how `flutter run -d pocket` works, and what it took.
+- `tool/drive_attach.py`: the adb-based spike driver: attaches from a
+  project, restarts into it, edits, hot reloads, and times both.
