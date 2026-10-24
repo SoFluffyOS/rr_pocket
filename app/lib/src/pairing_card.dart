@@ -39,7 +39,7 @@ class _PairingDetails extends StatelessWidget {
       fontWeight: FontWeight.w800,
     );
     final command = switch (pairing.address) {
-      final address? => 'dart pocket.dart pair $address ${pairing.code}',
+      final address? => 'pocket pair $address ${pairing.code}',
       null => 'Connect this phone to Wi-Fi first.',
     };
     Widget row(String label, String value) => Padding(

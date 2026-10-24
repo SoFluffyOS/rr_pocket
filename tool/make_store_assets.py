@@ -236,7 +236,7 @@ def pairing():
     place(canvas, device, ((1080 - device.width) // 2, y + 70))
     card, draw = window("Terminal", 980, 200)
     code_lines(draw, [
-        [("$ ", AMBER), ("dart pocket.dart pair 10.0.2.16 FXSLEDDB", WHITE)],
+        [("$ ", AMBER), ("pocket pair 10.0.2.16 FXSLEDDB", WHITE)],
         [plain("Paired with RR Pocket.")],
     ], 28, 74, 25, 52, numbers=False)
     place(canvas, card, ((1080 - card.width) // 2, 1500))

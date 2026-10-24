@@ -1,7 +1,7 @@
 """Captures the raw screens for the Play listing into store/captures/.
 
 Needs a device or emulator with RR Pocket installed and paired
-(dart tool/pocket.dart pair ...). Sets the display to a 1080x2400 phone and
+(pocket pair ...). Sets the display to a 1080x2400 phone and
 a clean status bar while it works, and puts both back after.
 
 Usage: python3 tool/capture_store_screens.py [device id]   (default emulator-5554)

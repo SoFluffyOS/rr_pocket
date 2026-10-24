@@ -6,9 +6,13 @@ Graphics are in `play/` (remake with `tool/capture_store_screens.py`, then
 
 ## Before publishing (Simon)
 
-- **Where users get `pocket.dart`.** The listing tells them to run it; today
-  it lives in this private repo. Publish it (a pub package, or a public
-  repo), then put the link where the description says `<link>`.
+- **Publish the `rr_pocket` package when the listing goes live.** The
+  description tells users to run `dart pub global activate rr_pocket`; that
+  works only once `desktop/` is on pub.dev.
+- **Remake the graphics.** `2-no-sdk.png` and the home screen captures still
+  show `dart pocket.dart pair`; the app and `tool/make_store_assets.py` now
+  say `pocket pair`. Capture again on a paired emulator
+  (`tool/capture_store_screens.py`), then `tool/make_store_assets.py`.
 - **Host the privacy policy** (`privacy-policy.md`) and give Play its URL.
 - **First upload by hand:** Play's API can't create the app, so the first
   bundle goes up in the Play Console (from the workflow's artifact or
@@ -28,8 +32,9 @@ RR Pocket runs the Flutter project you're working on, on your Android phone, str
 
 HOW IT WORKS
 1. Open RR Pocket. It shows its address and a pairing code.
-2. On your computer, pair once: dart pocket.dart pair <address> <code>
-   (get pocket.dart from <link>)
+2. On your computer, install the pocket command and pair once:
+   dart pub global activate rr_pocket
+   pocket pair <address> <code>
 3. In any Flutter project: flutter run -d pocket
 
 Your app opens inside RR Pocket. Change your code, press r, and hot reload shows it in under a second. Hot restart, DevTools, breakpoints and your print output work like on any other device. Press q and the phone is back to RR Pocket.
@@ -39,7 +44,7 @@ Your app can use camera, geolocator, flutter_local_notifications, local_auth, im
 
 GOOD TO KNOW
 • Your project must use the same Flutter version as RR Pocket; the home screen shows which. flutter run tells you when it differs.
-• Plugin versions must match the ones built in: dart pocket.dart pin sets them for you.
+• Plugin versions must match the ones built in: pocket pin sets them for you.
 • A plugin RR Pocket doesn't carry throws MissingPluginException when called; build your app the usual way for that one.
 • Your phone and computer need to be on the same network.
 
