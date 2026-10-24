@@ -26,7 +26,7 @@ import kotlin.concurrent.thread
  */
 class PocketServer(
     private val port: Int,
-    private val pairing: Pairing,
+    private val accepts: (String?) -> Boolean,
     private val root: File,
     private val hello: () -> String,
     private val actions: Actions,
@@ -41,17 +41,20 @@ class PocketServer(
     private val staging = File(root, "staging")
     private val bundle = File(root, "bundle")
 
-    fun start() {
+    /** Listens on [port] (0 for any) and returns the port it got. */
+    fun start(): Int {
+        val server = ServerSocket()
+        server.reuseAddress = true
+        server.bind(InetSocketAddress(port))
         thread(isDaemon = true, name = "rr-pocket-control") {
-            ServerSocket().use { server ->
-                server.reuseAddress = true
-                server.bind(InetSocketAddress(port))
+            server.use {
                 while (true) {
                     val client = server.accept()
                     thread(isDaemon = true) { serve(client) }
                 }
             }
         }
+        return server.localPort
     }
 
     private fun serve(socket: Socket) {
@@ -77,7 +80,7 @@ class PocketServer(
     }
 
     private fun authorized(request: Request) =
-        pairing.accepts(request.header("authorization")?.removePrefix("Bearer "))
+        accepts(request.header("authorization")?.removePrefix("Bearer "))
 
     /**
      * Dart's `print` lands in this process's log under the `flutter` tag; an

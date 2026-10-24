@@ -45,7 +45,7 @@ object Pocket {
         VmRelay(VM_RELAY_PORT, ::vmServiceUri).start()
         PocketServer(
             port = CONTROL_PORT,
-            pairing = pairing,
+            accepts = pairing::accepts,
             root = File(context.filesDir, "pocket"),
             hello = { hello(context) },
             actions = object : PocketServer.Actions {

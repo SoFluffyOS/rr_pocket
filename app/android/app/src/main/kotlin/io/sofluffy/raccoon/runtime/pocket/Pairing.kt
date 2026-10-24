@@ -3,13 +3,12 @@ package io.sofluffy.raccoon.runtime.pocket
 import android.content.Context
 import java.net.Inet4Address
 import java.net.NetworkInterface
-import java.security.MessageDigest
 import java.security.SecureRandom
 
 /**
  * The code a computer must show to drive this phone, and the address it
  * reaches it at. The code is 8 characters from 32 (40 bits) and stays until
- * the app's data is cleared; ten wrong codes lock the door for five minutes.
+ * the app's data is cleared; [CodeGate] checks it.
  */
 class Pairing(context: Context) {
     private val prefs = context.getSharedPreferences("rr_pocket", Context.MODE_PRIVATE)
@@ -18,26 +17,9 @@ class Pairing(context: Context) {
         prefs.edit().putString(KEY, it).apply()
     }
 
-    private var failures = 0
-    private var lockedUntil = 0L
+    private val gate = CodeGate(code)
 
-    @Synchronized
-    fun accepts(offered: String?): Boolean {
-        val now = System.currentTimeMillis()
-        if (now < lockedUntil) return false
-        val matches = offered != null &&
-            MessageDigest.isEqual(offered.uppercase().toByteArray(), code.toByteArray())
-        if (matches) {
-            failures = 0
-            return true
-        }
-        failures++
-        if (failures >= MAX_FAILURES) {
-            failures = 0
-            lockedUntil = now + LOCKOUT_MS
-        }
-        return false
-    }
+    fun accepts(offered: String?) = gate.accepts(offered)
 
     /** The phone's IPv4 address on Wi-Fi (or any LAN), null when offline. */
     fun address(): String? {
@@ -61,7 +43,5 @@ class Pairing(context: Context) {
     companion object {
         private const val KEY = "pairing_code"
         private const val ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-        private const val MAX_FAILURES = 10
-        private const val LOCKOUT_MS = 5 * 60 * 1000L
     }
 }
