@@ -11,12 +11,9 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-sdk="${ANDROID_HOME:-$HOME/Android/Sdk}"
+source "$root/tool/env.sh"
+sdk="$ANDROID_HOME"
 tools="$sdk/build-tools/$(ls "$sdk/build-tools" | sort -V | tail -1)"
-if [[ -z "${JAVA_HOME:-}" && -d "$HOME/.local/share/jdk" ]]; then
-  JAVA_HOME="$(ls -d "$HOME"/.local/share/jdk/* | head -1)"
-fi
-export ANDROID_HOME="$sdk" JAVA_HOME PATH="${JAVA_HOME:+$JAVA_HOME/bin:}$PATH"
 
 versions="$(flutter --version --machine)"
 flutter_version="$(python3 -I -c 'import json, sys; print(json.load(sys.stdin)["frameworkVersion"])' <<<"$versions")"

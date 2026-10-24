@@ -8,11 +8,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
-if [[ -z "${JAVA_HOME:-}" && -d "$HOME/.local/share/jdk" ]]; then
-  JAVA_HOME="$(ls -d "$HOME"/.local/share/jdk/* | head -1)"
-  export JAVA_HOME
-fi
+source "$root/tool/env.sh"
 
 cd "$root/app"
 flutter analyze

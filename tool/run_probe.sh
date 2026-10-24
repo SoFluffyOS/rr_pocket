@@ -7,7 +7,7 @@ set -euo pipefail
 
 device="${1:-emulator-5554}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
-export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
+source "$root/tool/env.sh"
 adb=("$ANDROID_HOME/platform-tools/adb" -s "$device")
 app=io.sofluffy.raccoon.runtime.pocket
 

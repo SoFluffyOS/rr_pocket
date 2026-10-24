@@ -11,7 +11,9 @@ import time
 
 app_dir, url = sys.argv[1], sys.argv[2]
 device = sys.argv[3] if len(sys.argv) > 3 else "emulator-5554"
-adb = os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Android/Sdk")), "platform-tools/adb")
+SDKS = [os.environ.get("ANDROID_HOME", ""), "~/Android/Sdk", "~/Library/Android/sdk"]
+adb = next((path for path in (os.path.join(os.path.expanduser(sdk), "platform-tools/adb") for sdk in SDKS if sdk)
+            if os.path.exists(path)), "adb")
 main = f"{app_dir}/lib/main.dart"
 
 # attach compiles before it writes the plugin registrant, so a project's first
