@@ -1,7 +1,6 @@
-import 'package:flutter/material.dart';
-
-import 'src/home_page.dart';
-import 'src/theme.dart';
+import 'package:flutter/widgets.dart';
+import 'package:rr_pocket/src/src.dart';
+import 'package:sofluffy_ui/sofluffy_ui.dart';
 
 void main() => runApp(const RrPocketApp());
 
@@ -10,12 +9,14 @@ class RrPocketApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return WidgetsApp(
       title: 'RR Pocket',
+      color: RrColors.slate,
       debugShowCheckedModeBanner: false,
-      theme: rrTheme(Brightness.light),
-      darkTheme: rrTheme(Brightness.dark),
-      home: const HomePage(),
+      builder: (context, _) => FluffyTheme(
+        data: rrTheme(MediaQuery.platformBrightnessOf(context)),
+        child: const HomePage(),
+      ),
     );
   }
 }

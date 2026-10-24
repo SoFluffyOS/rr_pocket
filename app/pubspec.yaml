@@ -6,13 +6,17 @@ version: 0.1.0+1
 environment:
   sdk: ^3.13.5
 
-# Every plugin here is one a project can use on RR Pocket; the home screen
-# lists them (lib/src/build_info.dart, kept in step by a test).
+# Every Flutter plugin here is one a project can use on RR Pocket; the home
+# screen lists them (lib/src/build_info.dart, kept in step by a test).
 dependencies:
   flutter:
     sdk: flutter
   path_provider: ^2.1.6
   shared_preferences: ^2.5.6
+  sofluffy_ui:
+    git:
+      url: https://github.com/SoFluffyOS/sofluffy_ui.git
+      ref: f28e912f
 
 dev_dependencies:
   flutter_test:
