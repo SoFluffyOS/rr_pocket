@@ -43,11 +43,10 @@ is signed again. The home screen shows the Flutter version it stamps in.
 
 ## Use it
 
-Install the `pocket` command, from this private repo until the package
-is on pub.dev:
+Install the `pocket` command:
 
 ```sh
-dart pub global activate --source git https://github.com/simonpham/rr_pocket.git --git-path desktop
+dart pub global activate rr_pocket
 ```
 
 Open RR Pocket on the phone, then on the computer, once:
