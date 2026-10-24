@@ -85,13 +85,42 @@ void main() {
     );
   });
 
-  test('refuses a link with parts missing or a host name', () {
+  test('sends its code only to an address on the local network', () {
+    for (final host in [
+      '203.0.113.9',
+      '8.8.8.8',
+      '127.0.0.1',
+      'evil.example.com',
+      '172.32.0.1',
+      'fe80::1',
+    ]) {
+      expect(
+        () => PairLink.parse(
+          'rrpocket://pair?v=1&hosts=$host&port=1&token=t&name=Mac',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('outside your Wi-Fi'),
+          ),
+        ),
+        reason: host,
+      );
+    }
+    final mixed = PairLink.parse(
+      'rrpocket://pair?v=1&hosts=203.0.113.9,192.168.1.5,169.254.3.4'
+      '&port=1&token=t',
+    );
+    expect(mixed.hosts, ['192.168.1.5', '169.254.3.4']);
+  });
+
+  test('refuses a link with parts missing', () {
     for (final query in [
       'v=1&port=1&token=t',
       'v=1&hosts=10.0.0.3&token=t',
       'v=1&hosts=10.0.0.3&port=70000&token=t',
       'v=1&hosts=10.0.0.3&port=1',
-      'v=1&hosts=evil.example.com&port=1&token=t',
     ]) {
       expect(
         () => PairLink.parse('rrpocket://pair?$query'),

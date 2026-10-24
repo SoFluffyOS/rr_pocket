@@ -75,7 +75,11 @@ class PairingFlow extends ChangeNotifier {
   /// A computer's POST /pair, held open by the server until this answers.
   Future<bool> _askForComputer(Object? arguments) async {
     if (arguments case {'id': final int id, 'computer': final String name}) {
-      final allowed = await question.ask(name, tag: id);
+      final where = switch (arguments['from']) {
+        final String from => 'Asking from $from.',
+        _ => null,
+      };
+      final allowed = await question.ask(name, tag: id, where: where);
       if (!allowed) return false;
       _say(PairingNoteKind.done, 'Sent the pairing code to $name.');
       return true;
@@ -124,7 +128,11 @@ class PairingFlow extends ChangeNotifier {
     } on FormatException catch (error) {
       return _say(PairingNoteKind.failed, error.message);
     }
-    final allowed = await question.ask(link.name, tag: link);
+    final allowed = await question.ask(
+      link.name,
+      tag: link,
+      where: 'Sends this phone\'s code to ${link.hosts.join(' or ')}.',
+    );
     if (!allowed) return;
     final phone = await loadPairing();
     if (phone == null) {

@@ -38,7 +38,7 @@ class ScreenPrompt : PocketServer.PairPrompt {
         this.showing = showing
     }
 
-    override fun ask(computer: String, answer: (PairAnswer) -> Unit) {
+    override fun ask(computer: String, from: String, answer: (PairAnswer) -> Unit) {
         main.post {
             val channel = channel
             if (channel == null || !showing || projectRunning) {
@@ -48,7 +48,7 @@ class ScreenPrompt : PocketServer.PairPrompt {
             asked++
             channel.invokeMethod(
                 "askPair",
-                mapOf("id" to asked, "computer" to computer),
+                mapOf("id" to asked, "computer" to computer, "from" to from),
                 object : MethodChannel.Result {
                     override fun success(result: Any?) =
                         answer(if (result == true) PairAnswer.ALLOWED else PairAnswer.REFUSED)

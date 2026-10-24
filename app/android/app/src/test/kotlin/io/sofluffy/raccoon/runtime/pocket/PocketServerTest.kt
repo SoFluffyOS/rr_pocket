@@ -24,6 +24,7 @@ class PocketServerTest {
     private var ran: File? = null
     private var stopped = false
     private val prompt = FakePrompt()
+    @Volatile private var clock = 0L
     private val port = PocketServer(
         port = 0,
         code = "CODE",
@@ -42,6 +43,7 @@ class PocketServerTest {
         },
         prompt = prompt,
         pairTimeoutMs = 1000,
+        now = { clock },
     ).start()
 
     /** Answers with [answer] after [delayMs]; null leaves the question open. */
@@ -49,12 +51,14 @@ class PocketServerTest {
         @Volatile var answer: PairAnswer? = PairAnswer.ALLOWED
         @Volatile var delayMs = 0L
         @Volatile var asked: String? = null
+        @Volatile var askedFrom: String? = null
         val asks = AtomicInteger()
         val withdrawn = AtomicInteger()
         val waiting = CountDownLatch(1)
 
-        override fun ask(computer: String, answer: (PairAnswer) -> Unit) {
+        override fun ask(computer: String, from: String, answer: (PairAnswer) -> Unit) {
             asked = computer
+            askedFrom = from
             asks.incrementAndGet()
             waiting.countDown()
             val given = this.answer ?: return
@@ -148,6 +152,7 @@ class PocketServerTest {
         assertEquals(200, response.status)
         assertEquals("""{"code":"CODE"}""", response.body)
         assertEquals("Simon's Mac", prompt.asked)
+        assertEquals("127.0.0.1", prompt.askedFrom)
     }
 
     @Test
@@ -200,7 +205,49 @@ class PocketServerTest {
         waiting.join()
         assertEquals(408, first?.status)
         prompt.answer = PairAnswer.ALLOWED
+        clock += 30_000
         assertEquals(200, request("POST", "/pair", code = null, body = """{"computer":"C"}""".toByteArray()).status)
+    }
+
+    @Test
+    fun staysQuietAfterANo() {
+        prompt.answer = PairAnswer.REFUSED
+        assertEquals(403, request("POST", "/pair", code = null, body = """{"computer":"Mac"}""".toByteArray()).status)
+
+        prompt.answer = PairAnswer.ALLOWED
+        clock += 29_000
+        assertEquals(429, request("POST", "/pair", code = null, body = """{"computer":"Mac"}""".toByteArray()).status)
+        assertEquals(1, prompt.asks.get())
+
+        clock += 1_000
+        assertEquals(200, request("POST", "/pair", code = null, body = """{"computer":"Mac"}""".toByteArray()).status)
+    }
+
+    @Test
+    fun aConnectionResetMidRequestLeavesTheServerUp() {
+        Socket("127.0.0.1", port).use { socket ->
+            socket.setSoLinger(true, 0) // close sends a reset
+            socket.getOutputStream().write("POST /pair HTTP/1.1\r\nContent-Le".toByteArray())
+        }
+        Thread.sleep(200)
+
+        assertEquals(200, request("GET", "/hello").status)
+    }
+
+    @Test
+    fun anEndlessLineEndsOnlyItsConnection() {
+        Socket("127.0.0.1", port).use { socket ->
+            // Closed after 8 KB: an end, or a reset if more was still coming.
+            val ended = try {
+                socket.getOutputStream().write(("GET /" + "x".repeat(20_000)).toByteArray())
+                socket.getInputStream().read() == -1
+            } catch (_: java.net.SocketException) {
+                true
+            }
+            assertTrue(ended)
+        }
+
+        assertEquals(200, request("GET", "/hello").status)
     }
 
     @Test

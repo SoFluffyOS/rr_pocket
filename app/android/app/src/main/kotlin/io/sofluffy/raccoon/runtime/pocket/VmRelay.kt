@@ -52,6 +52,16 @@ class VmRelay(private val port: Int, private val vmServiceUri: () -> String?) {
     }
 
     private fun relay(client: Socket) {
+        try {
+            relayOrThrow(client)
+        } catch (_: Exception) {
+            // closeAll() or the client ended it first: an exception out of
+            // this thread would end RR Pocket.
+            client.close()
+        }
+    }
+
+    private fun relayOrThrow(client: Socket) {
         val vmPort = vmServiceUri()?.let { URI(it).port }
         if (vmPort == null || vmPort <= 0) {
             client.close()

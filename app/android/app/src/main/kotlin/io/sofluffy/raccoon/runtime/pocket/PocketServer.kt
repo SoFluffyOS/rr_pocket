@@ -41,7 +41,12 @@ class PocketServer(
     private val actions: Actions,
     private val prompt: PairPrompt,
     private val pairTimeoutMs: Long = 60_000L,
+    private val quietMs: Long = 30_000L,
+    private val now: () -> Long = System::currentTimeMillis,
 ) {
+    @Volatile
+    private var quietUntil = 0L
+
     interface Actions {
         /** Starts [bundle]; returns the VM service's path, `/<auth>/`. */
         fun run(bundle: File): String
@@ -52,10 +57,11 @@ class PocketServer(
     /** RR Pocket's own screen asking "Pair with <computer>?". */
     interface PairPrompt {
         /**
-         * Shows the question and calls [answer] once, from any thread:
-         * right away with [PairAnswer.UNAVAILABLE] when nobody could answer.
+         * Shows the question, with the address it came [from], and calls
+         * [answer] once, from any thread: right away with
+         * [PairAnswer.UNAVAILABLE] when nobody could answer.
          */
-        fun ask(computer: String, answer: (PairAnswer) -> Unit)
+        fun ask(computer: String, from: String, answer: (PairAnswer) -> Unit)
 
         /** Takes the question down: nobody answered in time. */
         fun withdraw()
@@ -85,25 +91,34 @@ class PocketServer(
         return server.localPort
     }
 
+    /**
+     * One connection, until it ends. Anything that goes wrong with it, a
+     * reset mid-request included, ends it and only it: an exception out of
+     * this thread would end RR Pocket, and anyone on the Wi-Fi can connect.
+     */
     private fun serve(socket: Socket) {
-        socket.use {
-            val input = BufferedInputStream(it.getInputStream())
-            val output = it.getOutputStream()
-            while (true) {
-                val request = Request.read(input) ?: return
-                if (request.method == "GET" && request.path == "/logs") {
-                    if (authorized(request)) return streamLogs(output)
-                    return Response(401, error("wrong pairing code")).write(output)
+        try {
+            socket.use {
+                val input = BufferedInputStream(it.getInputStream())
+                val output = it.getOutputStream()
+                val from = it.inetAddress?.hostAddress ?: "an unknown address"
+                while (true) {
+                    val request = Request.read(input) ?: return
+                    if (request.method == "GET" && request.path == "/logs") {
+                        if (authorized(request)) return streamLogs(output)
+                        return Response(401, error("wrong pairing code")).write(output)
+                    }
+                    val response = try {
+                        respond(request, from)
+                    } catch (e: Exception) {
+                        Response(500, error(e.message ?: e.toString()))
+                    }
+                    request.drain()
+                    response.write(output)
+                    if (request.header("connection") == "close") return
                 }
-                val response = try {
-                    respond(request)
-                } catch (e: Exception) {
-                    Response(500, error(e.message ?: e.toString()))
-                }
-                request.drain()
-                response.write(output)
-                if (request.header("connection") == "close") return
             }
+        } catch (_: Exception) {
         }
     }
 
@@ -139,8 +154,8 @@ class PocketServer(
         }
     }
 
-    private fun respond(request: Request): Response {
-        if (request.method == "POST" && request.path == "/pair") return pair(request)
+    private fun respond(request: Request, from: String): Response {
+        if (request.method == "POST" && request.path == "/pair") return pair(request, from)
         if (!authorized(request)) {
             return Response(401, error("wrong pairing code"))
         }
@@ -176,25 +191,37 @@ class PocketServer(
         }
     }
 
-    /** Holds the request until the user answers, or [pairTimeoutMs] passes. */
-    private fun pair(request: Request): Response {
+    /**
+     * Holds the request until the user answers, or [pairTimeoutMs] passes.
+     * After a no, or no answer, the phone stays quiet for [quietMs]: someone
+     * on the Wi-Fi asking again and again can't keep the question on screen
+     * until a tired tap allows it.
+     */
+    private fun pair(request: Request, from: String): Response {
         val computer = computerName(request)
             ?: return Response(400, error("send {\"computer\": \"<this computer's name>\"}"))
+        if (now() < quietUntil) {
+            return Response(429, error("the phone said no a moment ago; try again in a little while"))
+        }
         if (!asking.compareAndSet(false, true)) {
             return Response(409, error("another computer is waiting for an answer on the phone; try again in a minute"))
         }
         try {
             val answers = ArrayBlockingQueue<PairAnswer>(1)
-            prompt.ask(computer) { answers.offer(it) }
+            prompt.ask(computer, from) { answers.offer(it) }
             return when (answers.poll(pairTimeoutMs, TimeUnit.MILLISECONDS)) {
                 PairAnswer.ALLOWED -> Response(200, """{"code":${quote(code)}}""")
-                PairAnswer.REFUSED -> Response(403, error("pairing refused on the phone"))
+                PairAnswer.REFUSED -> {
+                    quietUntil = now() + quietMs
+                    Response(403, error("pairing refused on the phone"))
+                }
                 PairAnswer.UNAVAILABLE -> Response(
                     409,
                     error("RR Pocket's screen is not showing on the phone (a project may be running); open RR Pocket, then try again"),
                 )
                 null -> {
                     prompt.withdraw()
+                    quietUntil = now() + quietMs
                     Response(408, error("no answer on the phone"))
                 }
             }
@@ -250,6 +277,7 @@ class PocketServer(
         }
 
         companion object {
+            /** Null at the end of the connection, or for what no client sends. */
             fun read(input: InputStream): Request? {
                 val line = readLine(input) ?: return null
                 val parts = line.split(" ")
@@ -258,6 +286,7 @@ class PocketServer(
                 while (true) {
                     val header = readLine(input) ?: return null
                     if (header.isEmpty()) break
+                    if (headers.size >= MAX_HEADERS) return null
                     val colon = header.indexOf(':')
                     if (colon > 0) {
                         headers[header.substring(0, colon).trim().lowercase()] =
@@ -268,12 +297,14 @@ class PocketServer(
                 return Request(parts[0], parts[1].substringBefore('?'), headers, Bounded(input, length))
             }
 
+            /** A line of at most [MAX_LINE] bytes; null for a longer one. */
             private fun readLine(input: InputStream): String? {
                 val line = StringBuilder()
                 while (true) {
                     val byte = input.read()
                     if (byte == -1) return if (line.isEmpty()) null else line.toString()
                     if (byte == '\n'.code) return line.toString().trimEnd('\r')
+                    if (line.length >= MAX_LINE) return null
                     line.append(byte.toChar())
                 }
             }
@@ -308,6 +339,7 @@ class PocketServer(
                 404 -> "Not Found"
                 408 -> "Request Timeout"
                 409 -> "Conflict"
+                429 -> "Too Many Requests"
                 else -> "Error"
             }
             output.write(
@@ -322,6 +354,8 @@ class PocketServer(
     companion object {
         const val MAX_NAME = 64
         private const val MAX_PAIR_BODY = 4096L
+        private const val MAX_LINE = 8192
+        private const val MAX_HEADERS = 64
 
         fun quote(text: String) =
             "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\""

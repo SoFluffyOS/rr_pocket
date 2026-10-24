@@ -184,6 +184,7 @@ void main() {
       await pairing.scan();
 
       expect(question.asked, ["Simon's Mac"]);
+      expect(question.where.single, contains('192.168.1.5'));
       expect(sender.sent, hasLength(1));
       expect(sender.sent.single.token, 't');
       expect(pairing.note?.text, "Paired with Simon's Mac.");
@@ -242,10 +243,12 @@ void main() {
 class _FakeQuestion implements PairQuestion {
   bool allow = true;
   final asked = <String>[];
+  final where = <String?>[];
 
   @override
-  Future<bool> ask(String computer, {required Object tag}) async {
+  Future<bool> ask(String computer, {required Object tag, String? where}) async {
     asked.add(computer);
+    this.where.add(where);
     return allow;
   }
 
