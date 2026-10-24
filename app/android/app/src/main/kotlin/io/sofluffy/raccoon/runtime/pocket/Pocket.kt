@@ -5,6 +5,8 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import io.flutter.embedding.engine.FlutterJNI
+import java.util.Date
+import kotlin.concurrent.thread
 import org.json.JSONObject
 import java.io.File
 import java.lang.ref.WeakReference
@@ -24,6 +26,9 @@ object Pocket {
     private var pairing: Pairing? = null
     private var activity = WeakReference<Activity>(null)
     private var link: String? = null
+
+    /** The running project's first seconds, watched for a startup error. */
+    private var watch: StartupErrorWatch? = null
 
     /** Where /pair asks the user. */
     val prompt = ScreenPrompt()
@@ -48,6 +53,15 @@ object Pocket {
         val context = activity.applicationContext
         val pairing = Pairing(context).also { pairing = it }
         VmRelay(VM_RELAY_PORT, ::vmServiceUri).start()
+        // Learn the engine's VM service address now, before anything
+        // attaches: a tool attached with DDS (run_probe.sh's driver does)
+        // makes FlutterJNI report the computer's address instead.
+        thread(isDaemon = true, name = "rr-pocket-vm-service") {
+            repeat(100) {
+                if (vmServiceUri() != null) return@thread
+                Thread.sleep(100)
+            }
+        }
         PocketServer(
             port = CONTROL_PORT,
             code = pairing.code,
@@ -57,9 +71,7 @@ object Pocket {
             actions = object : PocketServer.Actions {
                 override fun run(bundle: File) = runInView(bundle)
 
-                override fun stop() {
-                    activity()?.let { it.runOnUiThread { it.recreate() } }
-                }
+                override fun stop() = stopProject()
             },
             prompt = prompt,
         ).start()
@@ -69,6 +81,25 @@ object Pocket {
     }
 
     private fun activity() = activity.get()
+
+    /** Back to RR Pocket's own screen: a new engine, without the project. */
+    private fun stopProject() {
+        watch?.stop()
+        watch = null
+        activity()?.let {
+            it.runOnUiThread {
+                StartupErrorPanel.dismiss()
+                it.recreate()
+            }
+        }
+    }
+
+    /** Shows a startup error over the frozen screen; the panel can go back. */
+    private fun showStartupError(message: String) {
+        activity()?.let {
+            it.runOnUiThread { StartupErrorPanel.show(it, message, ::stopProject) }
+        }
+    }
 
     /** An rrpocket://pair link for RR Pocket's own screen to take. */
     @Synchronized
@@ -105,12 +136,18 @@ object Pocket {
      */
     private fun runInView(bundle: File): String {
         prompt.projectRunning = true
-        return try {
+        // Before the restart: an error in the project's first milliseconds
+        // is logged before the watch could start.
+        val since = Date()
+        val path = try {
             restartInto(bundle)
         } catch (e: Exception) {
             prompt.projectRunning = false
             throw e
         }
+        watch?.stop()
+        watch = StartupErrorWatch(since, onError = ::showStartupError).also { it.start() }
+        return path
     }
 
     private fun restartInto(bundle: File): String {
