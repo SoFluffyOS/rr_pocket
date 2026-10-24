@@ -41,7 +41,7 @@ class BuildCard extends StatelessWidget {
           row('Flutter', BuildInfo.flutterVersion),
           row('Dart', BuildInfo.dartVersion),
           Spacing.v12,
-          Text('Plugins', style: labelStyle),
+          Text('Plugins · ${BuildInfo.plugins.length}', style: labelStyle),
           Spacing.v8,
           Wrap(
             spacing: Spacing.d8,
