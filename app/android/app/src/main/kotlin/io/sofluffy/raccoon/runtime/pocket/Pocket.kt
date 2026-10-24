@@ -67,7 +67,15 @@ object Pocket {
         .put("flutterVersion", context.getString(R.string.rr_flutter_version))
         .put("engineRevision", context.getString(R.string.rr_engine_revision))
         .put("vmRelayPort", VM_RELAY_PORT)
+        .put("plugins", plugins(context))
         .toString()
+
+    /** The Android plugin packages and versions built in, by tool/build_apk.sh. */
+    private fun plugins(context: Context) = try {
+        JSONObject(context.assets.open("rr_plugins.json").use { it.readBytes().decodeToString() })
+    } catch (_: Exception) {
+        JSONObject()
+    }
 
     /**
      * Restarts the running engine into [bundle], the way hot restart does:
