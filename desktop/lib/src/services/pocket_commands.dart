@@ -30,8 +30,13 @@ class PocketCommands {
 
   static const Duration helloTimeout = Duration(seconds: 10);
 
+  /// Counts pairings, so a refresh that started before one leaves the
+  /// status bar to it.
+  int _pairings = 0;
+
   /// Asks the phone how it is, and shows the answer in the status bar.
   Future<PhoneStatus> refresh() async {
+    final pairings = _pairings;
     final phone = await Phone.tryLoad(config);
     if (phone == null) {
       await statusBar.update(const NotPaired());
@@ -47,7 +52,7 @@ class PocketCommands {
     } finally {
       phone.close();
     }
-    await statusBar.update(status);
+    if (pairings == _pairings) await statusBar.update(status);
     return status;
   }
 
@@ -79,6 +84,7 @@ class PocketCommands {
         task: (_) async {
           final hello = await phone.hello().timeout(helloTimeout);
           await phone.save(config);
+          _pairings++;
           await registerDevice(_flutter, await _deviceHelper());
           return hello;
         },

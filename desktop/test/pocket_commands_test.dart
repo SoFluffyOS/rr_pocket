@@ -153,6 +153,20 @@ void main() {
           isFalse);
     });
 
+    test('offers the innermost project holding the open file first', () async {
+      await savePairing();
+      final plugin = await addProject('plugin');
+      final example = await addProject('plugin/example');
+      host.editor.activeUri = Uri.file('$example/lib/main.dart').toString();
+
+      await commands.pin();
+
+      expect(
+        [for (final item in host.window.lastPick) item.payload],
+        [example, plugin],
+      );
+    });
+
     test('leaves overrides it did not write', () async {
       await savePairing();
       final project = await addProject('app');
@@ -236,6 +250,21 @@ void main() {
           ));
       expect(host.statusBar.items.values.single.$1, 'RR Pocket');
     });
+
+    test('a refresh that started before a pairing leaves the status to it',
+        () async {
+      // An old pairing whose phone is gone: its refresh waits on the
+      // connection while the user pairs the new phone.
+      await Phone('10.255.255.1', 9, '0').save(config);
+      final stale = commands.refresh();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      host.window.inputs.addAll(['127.0.0.1:${phone.port}', phone.code]);
+      await commands.pair();
+
+      await stale;
+
+      expect(host.statusBar.items.values.single.$1, 'Test Phone');
+    }, timeout: const Timeout(Duration(seconds: 30)));
 
     test('offers to pair, and hides the status item, before pairing', () async {
       await commands.showPhone();

@@ -28,15 +28,20 @@ class StatusBarService {
     final (text, tooltip) = content;
     if (!_created) {
       _created = true;
-      await context.statusBar.createItem(
-        id: _itemId,
-        text: text,
-        tooltip: tooltip,
-        command: cmdShowPhone,
-        iconName: iconPhone,
-        alignment: 'right',
-        priority: 96,
-      );
+      try {
+        await context.statusBar.createItem(
+          id: _itemId,
+          text: text,
+          tooltip: tooltip,
+          command: cmdShowPhone,
+          iconName: iconPhone,
+          alignment: 'right',
+          priority: 96,
+        );
+      } catch (_) {
+        _created = false;
+        rethrow;
+      }
       return;
     }
     await context.statusBar.updateItem(

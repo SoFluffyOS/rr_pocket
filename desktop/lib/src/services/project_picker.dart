@@ -24,8 +24,14 @@ class ProjectPicker {
     }
     if (projects case [final only]) return only;
     final active = await _activeDocumentPath();
+    // The innermost project holding the open file first: an example/ app
+    // before the plugin package around it.
+    final holding = [
+      for (final project in projects)
+        if (_holds(project, active)) project,
+    ]..sort((a, b) => b.length.compareTo(a.length));
     final ordered = [
-      ...projects.where((project) => _holds(project, active)),
+      ...holding,
       ...projects.where((project) => !_holds(project, active)),
     ];
     final picked = await context.window.showQuickPick(

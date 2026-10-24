@@ -45,12 +45,17 @@ class RrPocketPlugin extends LumidePlugin {
     };
     await Future.wait([
       for (final MapEntry(key: id, value: callback) in callbacks.entries)
-        context.commands.registerCommand(
-          id: id,
-          title: pocketCommandTitle(id),
-          category: pluginName,
-          callback: ([_]) => _guard(id, callback),
-        ),
+        context.commands
+            .registerCommand(
+              id: id,
+              title: pocketCommandTitle(id),
+              category: pluginName,
+              callback: ([_]) => _guard(id, callback),
+            )
+            .catchError(
+              (Object error, StackTrace stackTrace) =>
+                  logService.error('Could not register $id', error, stackTrace),
+            ),
     ]);
   }
 
