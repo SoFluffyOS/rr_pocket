@@ -52,7 +52,8 @@ first, until the custom device generates that wrapper.
 
 ## Layout
 
-- `app/`: the Android app. Its plugins are the ones in `pubspec.yaml`; a test
+- `app/`: the Android app, built with `sofluffy_ui` (pinned to the commit
+  Lumide uses). Its Flutter plugins are the ones in `pubspec.yaml`; a test
   keeps the home screen's list in step.
 - `app/fonts/`: Nunito, cut to static weights from Google Fonts' variable
   font (SIL Open Font License, `OFL.txt`).
