@@ -157,6 +157,32 @@ sdks:
     });
   });
 
+  group('the Flutter SDK', () {
+    test('finds its folder in flutter --version --machine', () {
+      expect(
+        parseFlutterRoot(
+          'Waiting for another flutter command to release the startup '
+          'lock...\n{"frameworkVersion": "3.47.7", "flutterRoot": "/sdk"}\n',
+        ),
+        '/sdk',
+      );
+      expect(parseFlutterRoot('{"frameworkVersion": "3.47.7"}'), isNull);
+      expect(parseFlutterRoot('flutter: command not found'), isNull);
+      expect(parseFlutterRoot('{not json}'), isNull);
+    });
+
+    test('its dart is in bin/cache/dart-sdk', () {
+      expect(
+        flutterDart('/sdk', windows: false),
+        '/sdk/bin/cache/dart-sdk/bin/dart',
+      );
+      expect(
+        flutterDart(r'C:\flutter', windows: true),
+        r'C:\flutter\bin\cache\dart-sdk\bin\dart.exe',
+      );
+    });
+  });
+
   group('Flutter projects', () {
     test('build output and caches inside the workspace are ignored', () {
       const folders = ['/work'];

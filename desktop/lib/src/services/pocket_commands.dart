@@ -20,13 +20,13 @@ class PocketCommands {
     required this.statusBar,
     required this.projects,
     Future<List<String>> Function()? helperCommand,
-  }) : _helperCommand = helperCommand ?? currentHelperCommand;
+  }) : _helperCommand = helperCommand;
 
   final LumideContext context;
   final PocketConfig config;
   final StatusBarService statusBar;
   final ProjectPicker projects;
-  final Future<List<String>> Function() _helperCommand;
+  final Future<List<String>> Function()? _helperCommand;
 
   static const Duration helloTimeout = Duration(seconds: 10);
 
@@ -79,7 +79,7 @@ class PocketCommands {
         task: (_) async {
           final hello = await phone.hello().timeout(helloTimeout);
           await phone.save(config);
-          await registerDevice(_flutter, await _helperCommand());
+          await registerDevice(_flutter, await _deviceHelper());
           return hello;
         },
       );
@@ -158,6 +158,13 @@ class PocketCommands {
       title: pluginName,
     );
     if (confirmed) await pair();
+  }
+
+  /// Lumide may run this plugin on a Dart SDK of its own, so Flutter calls
+  /// the tool back with the Dart of the Flutter SDK it registered with.
+  Future<List<String>> _deviceHelper() async {
+    if (_helperCommand case final helper?) return helper();
+    return currentHelperCommand(dart: await findFlutterDart(_flutter));
   }
 
   Future<FlutterResult> _flutter(

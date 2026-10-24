@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:rr_pocket/src/constants.dart';
 
 /// The `pocket` custom device: Flutter calls [helper] with `ping`,
@@ -42,4 +44,35 @@ List<String> helperCommand({
     dart,
     [packageRoot, 'bin', '$cliExecutable.dart'].join(separator)
   ];
+}
+
+/// The Flutter SDK's folder, from `flutter --version --machine`, whose
+/// output can start with other lines (a lock wait, an upgrade notice).
+String? parseFlutterRoot(String machineVersion) {
+  final start = machineVersion.indexOf('{');
+  final end = machineVersion.lastIndexOf('}');
+  if (start < 0 || end < start) return null;
+  try {
+    final json = jsonDecode(machineVersion.substring(start, end + 1));
+    if (json case {'flutterRoot': final String root} when root.isNotEmpty) {
+      return root;
+    }
+    return null;
+  } on FormatException {
+    return null;
+  }
+}
+
+/// The `dart` that ships with the Flutter SDK at [flutterRoot].
+String flutterDart(String flutterRoot, {required bool windows}) {
+  final executable = switch (windows) {
+    true => 'dart.exe',
+    false => 'dart',
+  };
+  final separator = switch (windows) {
+    true => r'\',
+    false => '/',
+  };
+  return [flutterRoot, 'bin', 'cache', 'dart-sdk', 'bin', executable]
+      .join(separator);
 }

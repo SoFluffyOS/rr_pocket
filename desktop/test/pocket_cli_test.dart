@@ -71,6 +71,31 @@ void main() {
     expect(await cli(['frobnicate']), 64);
   });
 
+  test('the device runs on the Dart of the Flutter SDK that registered it',
+      () async {
+    final dart = File('${temp.path}/sdk/bin/cache/dart-sdk/bin/dart')
+      ..createSync(recursive: true);
+    Future<FlutterResult> flutter(
+      List<String> arguments, {
+      String? workingDirectory,
+    }) async =>
+        (
+          exitCode: 0,
+          stdout: '{"flutterRoot": "${temp.path}/sdk"}',
+          stderr: '',
+        );
+    Future<FlutterResult> missing(
+      List<String> arguments, {
+      String? workingDirectory,
+    }) async =>
+        (exitCode: 1, stdout: '', stderr: 'not found');
+
+    expect(await findFlutterDart(flutter), dart.path);
+    expect(await findFlutterDart(missing), isNull);
+    dart.deleteSync();
+    expect(await findFlutterDart(flutter), isNull);
+  });
+
   test('the engine must match the SDK the project builds with', () {
     expect(
       () => checkEngine(

@@ -50,14 +50,26 @@ Future<void> registerDevice(RunFlutter flutter, List<String> helper) async {
 }
 
 /// How Flutter calls this running copy of the tool back (see
-/// [helperCommand]).
-Future<List<String>> currentHelperCommand() async {
+/// [helperCommand]), with [dart] or the one running this.
+Future<List<String>> currentHelperCommand({String? dart}) async {
   return helperCommand(
-    dart: Platform.resolvedExecutable,
+    dart: dart ?? Platform.resolvedExecutable,
     script: Platform.script,
     packageRoot: await _packageRoot(),
     separator: Platform.pathSeparator,
   );
+}
+
+/// The `dart` of the Flutter SDK [flutter] runs, or null when it cannot
+/// tell.
+Future<String?> findFlutterDart(RunFlutter flutter) async {
+  final result = await flutter(['--version', '--machine']);
+  if (result.exitCode != 0) return null;
+  final root = parseFlutterRoot(result.stdout);
+  if (root == null) return null;
+  final dart = flutterDart(root, windows: Platform.isWindows);
+  if (!await File(dart).exists()) return null;
+  return dart;
 }
 
 /// This package's folder: from the package config, or the script's.
