@@ -3,7 +3,8 @@
 // project on the phone over Wi-Fi. Needs only the Dart that ships with
 // Flutter: no adb, no Android SDK.
 //
-//   dart tool/pocket.dart pair <phone address> <code>
+//   dart tool/pocket.dart pair <phone address> <code>     once
+//   dart tool/pocket.dart pin                              in a project
 //   flutter run -d pocket
 //
 // The tool calls the rest: ping, install <flutter_assets> <app>, run <app>,
@@ -20,7 +21,8 @@ Future<void> main(List<String> args) async {
     exitCode = await switch (args) {
       ['pair', final address, final code] => pair(address, code),
       ['ping'] => ping(),
-      ['install', final bundle, _] => install(bundle),
+      ['pin'] => pin(Directory.current),
+      ['install', final bundle, _] => recordInstall(() => install(bundle)),
       ['run', ...] => run(),
       ['uninstall', ...] => stop(),
       _ => usage(),
@@ -41,8 +43,9 @@ Future<void> main(List<String> args) async {
 
 Future<int> usage() async {
   stderr.writeln(
-    'usage: dart pocket.dart pair <phone address> <code>\n'
-    '       (then: flutter run -d $deviceId)',
+    'usage: dart pocket.dart pair <phone address> <code>   (once)\n'
+    '       dart pocket.dart pin                           (in a project)\n'
+    '       then: flutter run -d $deviceId',
   );
   return 64;
 }
@@ -103,12 +106,79 @@ Future<int> ping() async {
   return 0;
 }
 
+/// Pins the project's Android plugins to the versions RR Pocket carries, in
+/// its pubspec_overrides.yaml, then resolves.
+Future<int> pin(Directory project) async {
+  final carried = bundledPlugins(await (await Phone.load()).hello());
+  final used = lockedVersions(project);
+  if (used == null) {
+    throw PocketException(
+      'no pubspec.lock in ${project.path}; run flutter pub get',
+    );
+  }
+  final pins = {
+    for (final MapEntry(key: name, value: version) in carried.entries)
+      if (used.containsKey(name)) name: version,
+  };
+  final overrides = File('${project.path}/pubspec_overrides.yaml');
+  if (overrides.existsSync() &&
+      !overrides.readAsStringSync().startsWith(_overridesHeader)) {
+    throw PocketException(
+      '${overrides.path} exists and is not ours; add these by hand:\n'
+      '${[for (final e in pins.entries) '  ${e.key}: ${e.value}'].join('\n')}',
+    );
+  }
+  final names = pins.keys.toList()..sort();
+  await overrides.writeAsString(
+    '$_overridesHeader: the Android plugin versions RR Pocket carries.\n'
+    'dependency_overrides:\n'
+    '${[for (final name in names) '  $name: ${pins[name]}\n'].join()}',
+  );
+  stdout.writeln('Pinned ${pins.length} plugins in ${overrides.path}.');
+  final flutter = Platform.isWindows ? 'flutter.bat' : 'flutter';
+  final got = await Process.run(flutter, [
+    'pub',
+    'get',
+  ], workingDirectory: project.path);
+  stdout.write(got.stdout);
+  stderr.write(got.stderr);
+  return got.exitCode;
+}
+
+/// The tool runs the app even when install failed (it only logs the
+/// failure), so install leaves its outcome where run checks it.
+Future<int> recordInstall(Future<int> Function() install) async {
+  final marker = File(
+    '${Phone.configDirectory}${Platform.pathSeparator}install_failed',
+  );
+  if (marker.existsSync()) marker.deleteSync();
+  try {
+    return await install();
+  } on PocketException catch (e) {
+    await marker.parent.create(recursive: true);
+    await marker.writeAsString(e.message);
+    rethrow;
+  }
+}
+
+/// Why the last install failed, if it did.
+String? lastInstallFailure() {
+  final marker = File(
+    '${Phone.configDirectory}${Platform.pathSeparator}install_failed',
+  );
+  return marker.existsSync() ? marker.readAsStringSync() : null;
+}
+
+const _overridesHeader = '# Written by RR Pocket (dart pocket.dart pin)';
+
 /// Sends the bundle: the kernel and the assets, not the engine's own
 /// snapshots, which RR Pocket carries.
 Future<int> install(String bundlePath) async {
   final phone = await Phone.load();
   final hello = await phone.hello();
   checkEngine(hello);
+  // The bundle is <project>/build/flutter_assets.
+  checkPlugins(hello, Directory(bundlePath).parent.parent);
   final bundle = Directory(bundlePath);
   const skipped = {
     'isolate_snapshot_data',
@@ -152,6 +222,9 @@ Future<int> install(String bundlePath) async {
 /// how the tool shows it. Stays up like a running app would; when the tool
 /// stops it, RR Pocket goes back to its own screen.
 Future<int> run() async {
+  if (lastInstallFailure() case final reason?) {
+    throw PocketException('not running: $reason');
+  }
   final phone = await Phone.load();
   final hello = await phone.hello();
   final result = await phone.call('POST', '/run');
@@ -178,6 +251,63 @@ Future<int> run() async {
 Future<int> stop() async {
   await (await Phone.load()).call('POST', '/stop');
   return 0;
+}
+
+/// A plugin's Dart side in the project and its Kotlin side in RR Pocket must
+/// be the same version, and a plugin RR Pocket lacks throws when called.
+void checkPlugins(Map<String, Object?> hello, Directory project) {
+  final carried = bundledPlugins(hello);
+  final used = lockedVersions(project);
+  if (carried.isEmpty || used == null) return;
+  final differ = [
+    for (final MapEntry(key: name, value: version) in carried.entries)
+      if (used[name] case final theirs? when theirs != version)
+        '$name $theirs (RR Pocket has $version)',
+  ];
+  if (differ.isNotEmpty) {
+    throw PocketException(
+      'plugin versions differ from RR Pocket\'s:\n  ${differ.join('\n  ')}\n'
+      'Run `dart pocket.dart pin` in the project, then run again.',
+    );
+  }
+  final missing = [
+    for (final name in androidPlugins(project) ?? const <String>[])
+      if (!carried.containsKey(name)) name,
+  ];
+  if (missing.isNotEmpty) {
+    stderr.writeln(
+      'RR Pocket does not carry ${missing.join(', ')}; calls to '
+      '${missing.length == 1 ? 'it' : 'them'} will throw MissingPluginException.',
+    );
+  }
+}
+
+Map<String, String> bundledPlugins(Map<String, Object?> hello) => {
+  for (final MapEntry(:key, :value)
+      in ((hello['plugins'] as Map?) ?? const {}).entries)
+    '$key': '$value',
+};
+
+/// Package versions from the project's pubspec.lock.
+Map<String, String>? lockedVersions(Directory project) {
+  final lock = File('${project.path}/pubspec.lock');
+  if (!lock.existsSync()) return null;
+  return {
+    for (final match in RegExp(
+      r'\n  (\w+):\n(?:    .*\n)*?    version: "([^"]+)"',
+    ).allMatches(lock.readAsStringSync()))
+      match.group(1)!: match.group(2)!,
+  };
+}
+
+/// The Android plugin packages the project resolves, implementations
+/// included (url_launcher_android), from Flutter's own list.
+List<String>? androidPlugins(Directory project) {
+  final file = File('${project.path}/.flutter-plugins-dependencies');
+  if (!file.existsSync()) return null;
+  final json = jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
+  final plugins = (json['plugins'] as Map?)?['android'] as List? ?? const [];
+  return [for (final plugin in plugins) (plugin as Map)['name'] as String];
 }
 
 /// The project's kernel runs only on the engine that SDK was built for.
@@ -212,13 +342,13 @@ class Phone {
   final String code;
   final _client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
 
-  static File get _file {
+  static String get configDirectory {
     final home = Platform.environment[Platform.isWindows ? 'APPDATA' : 'HOME'];
-    final dir = Platform.isWindows
-        ? '$home\\rr_pocket'
-        : '$home/.config/rr_pocket';
-    return File('$dir${Platform.pathSeparator}device.json');
+    return Platform.isWindows ? '$home\\rr_pocket' : '$home/.config/rr_pocket';
   }
+
+  static File get _file =>
+      File('$configDirectory${Platform.pathSeparator}device.json');
 
   static Future<Phone> load() async {
     if (!_file.existsSync()) {

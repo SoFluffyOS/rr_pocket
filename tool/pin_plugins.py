@@ -11,7 +11,8 @@ import re
 import sys
 from pathlib import Path
 
-HEADER = "# Written by RR Pocket's tool/pin_plugins.py"
+# The same header as tool/pocket.dart pin writes, so either may replace it.
+HEADER = "# Written by RR Pocket (dart pocket.dart pin)"
 app = Path(__file__).resolve().parent.parent / "app"
 project = Path(sys.argv[1])
 
@@ -36,7 +37,7 @@ if overrides.exists() and not overrides.read_text().startswith(HEADER):
              + "\n".join(f"  {n}: {v}" for n, v in sorted(pins.items())))
 
 overrides.write_text(
-    f"{HEADER}: the Android plugin versions it carries.\n"
+    f"{HEADER}: the Android plugin versions RR Pocket carries.\n"
     "dependency_overrides:\n"
     + "".join(f"  {name}: {version}\n" for name, version in sorted(pins.items())))
 print(f"pinned {len(pins)} plugins in {overrides}")
