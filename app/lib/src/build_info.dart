@@ -12,5 +12,24 @@ abstract final class BuildInfo {
   static String get dartVersion => Platform.version.split(' ').first;
 
   /// The app-facing plugin packages in pubspec.yaml.
-  static const plugins = ['path_provider', 'shared_preferences'];
+  static const plugins = [
+    'battery_plus',
+    'connectivity_plus',
+    'device_info_plus',
+    'file_picker',
+    'flutter_secure_storage',
+    'image_picker',
+    'in_app_review',
+    'package_info_plus',
+    'path_provider',
+    'sensors_plus',
+    'share_plus',
+    'shared_preferences',
+    'sqflite',
+    'url_launcher',
+    'vibration',
+    'video_player',
+    'wakelock_plus',
+    'webview_flutter',
+  ];
 }
