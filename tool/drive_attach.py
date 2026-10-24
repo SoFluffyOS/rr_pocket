@@ -72,7 +72,16 @@ open(main, "w").write(src)
 os.makedirs(f"{app_dir}/build", exist_ok=True)
 subprocess.run([adb, "exec-out", "screencap", "-p"],
                stdout=open(f"{app_dir}/build/after_reload.png", "wb"))
-p.stdin.write(json.dumps([{"id": 99, "method": "app.detach", "params": {"appId": app_id}}]) + "\n")
+# Stop, not detach: a detached app keeps its DDS, which holds the phone's VM
+# through this adb forward, and the next session is redirected to it.
+p.stdin.write(json.dumps([{"id": 99, "method": "app.stop", "params": {"appId": app_id}}]) + "\n")
 p.stdin.flush()
-time.sleep(2)
-p.kill()
+# Let flutter attach end by itself: killed, it leaves its DDS running.
+try:
+    p.wait(timeout=20)
+except subprocess.TimeoutExpired:
+    p.terminate()
+    try:
+        p.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        p.kill()
