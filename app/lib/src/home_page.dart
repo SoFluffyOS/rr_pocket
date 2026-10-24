@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:rr_pocket/src/build_card.dart';
+import 'package:rr_pocket/src/pairing_card.dart';
 import 'package:rr_pocket/src/rr_logo.dart';
 import 'package:rr_pocket/src/rr_theme.dart';
 import 'package:rr_pocket/src/waiting_card.dart';
@@ -51,10 +52,12 @@ class HomePage extends StatelessWidget {
                   Spacing.v32,
                   const WaitingCard(),
                   Spacing.v16,
+                  const PairingCard(),
+                  Spacing.v16,
                   const BuildCard(),
                   Spacing.v24,
                   Text(
-                    'No Android SDK. No Gradle. Just Flutter.',
+                    'No Android SDK. No adb. Just Flutter.',
                     textAlign: TextAlign.center,
                     style: theme.typography.base2.copyWith(color: theme.muted),
                   ),

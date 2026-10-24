@@ -40,7 +40,7 @@ class WaitingCard extends StatelessWidget {
                 ),
                 Spacing.v4,
                 Text(
-                  'Run it from your computer. It opens here, with hot reload.',
+                  'Run it from your computer over Wi-Fi. It opens here, with hot reload.',
                   style: typography.base2,
                 ),
               ],
