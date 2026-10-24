@@ -17,8 +17,8 @@ The spike passed on the Android emulator (Flutter 3.47.7, 2026-10-24):
 
 - A project with no `android/` folder runs in the prebuilt app. Launch
   579-821 ms, hot reload 173-211 ms.
-- The plugins the app carries answer, once the plugin registrant runs after
-  the restart.
+- All 18 plugins the app carries answer from such a project
+  (`docs/plugins.md`).
 - **The app ships non-debuggable, as Play requires, and the debug engine
   still runs.**
 
@@ -48,7 +48,15 @@ python3 tool/drive_attach.py <project> <URL> [device]
 ```
 
 The project's `main` must call `DartPluginRegistrant.ensureInitialized()`
-first, until the custom device generates that wrapper.
+first, until the custom device generates that wrapper, and its plugins must
+be pinned to the versions RR Pocket carries:
+
+```sh
+python3 tool/pin_plugins.py <project> && (cd <project> && flutter pub get)
+```
+
+`probe/` is such a project: it calls every bundled plugin and logs
+`PROBE <plugin> ok …` or `MISSING`. Run it after changing the plugin set.
 
 ## Layout
 
@@ -61,5 +69,9 @@ first, until the custom device generates that wrapper.
 - `tool/build_apk.sh`: the build above.
 - `tool/make_icons.py`: draws the R² launcher icons from Nunito ExtraBold
   (needs Pillow).
+- `probe/`: calls every bundled plugin, to check a build.
+- `docs/plugins.md`: which plugins to bundle and why, and what Tier 1 cost.
+- `tool/pin_plugins.py`: pins a project to the plugin versions RR Pocket
+  carries.
 - `tool/drive_attach.py`: attaches from a project, restarts into it, edits,
   hot reloads, and times both.

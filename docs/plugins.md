@@ -101,6 +101,48 @@ path_provider 2.3.0 and shared_preferences 2.5.0 to JNI).
 - **After:** mobile_scanner, google_maps_flutter with our own key,
   audioplayers.
 
+## Tier 1, bundled and checked (2026-10-24)
+
+All 18 Tier 1 plugins are in the app; `probe/` calls each one from a project
+with no platform folders, pinned with `tool/pin_plugins.py`. On the emulator
+(Android 15, x86_64) every one answered: real values from battery,
+connectivity, device info, secure storage, image picker, package info,
+paths, the accelerometer, shared preferences, SQLite 3.44.3, url_launcher,
+video (1280x720 from the network), wake lock; the web view drew as a
+platform view, the share sheet opened. Vibration and in_app_review answered
+false (no vibrator on the emulator, not installed from Play).
+
+| | arm64 APK |
+|---|---|
+| path_provider, shared_preferences | 82.9 MB |
+| all 18 | 94.3 MB (+11.4) |
+
+The 11.4 MB is 5.2 MB of plugin code (dex: ExoPlayer, WebKit, Tink, ...)
+and 5.9 MB of RR Pocket's own kernel, which now holds the plugins' Dart
+sides through the generated registrant. Users' apps never run that kernel,
+so it is the first thing to trim. The debug build type also skips R8; it
+can't simply be turned on, since Pigeon JNI finds Kotlin classes by name.
+Permissions added: ACCESS_NETWORK_STATE, VIBRATE, WAKE_LOCK, none with a
+Play declaration.
+
+Found on the way:
+
+- **A project's first run got no Dart-registered plugins.** `flutter
+  attach` compiles before it writes `dart_plugin_registrant.dart`, so the
+  first kernel has none (image_picker, path_provider, shared_preferences,
+  sqflite, url_launcher, video_player, webview failed; MethodChannel
+  plugins worked). The second run is fine. `tool/drive_attach.py` runs
+  `flutter build bundle` first when the registrant is missing (10 s, once);
+  the custom device will write the registrant itself.
+- **canLaunchUrl said false for https.** Android 11's package visibility:
+  the app's manifest must declare the intents it queries, and the user's
+  project can't. RR Pocket declares VIEW for http and https, SENDTO for
+  mailto and sms, DIAL for tel.
+- `tool/pin_plugins.py` is the `expo install --fix` step: it writes the
+  project's `pubspec_overrides.yaml` with the 21 Android packages RR Pocket
+  carries (the 18, plus jni, jni_flutter, flutter_plugin_android_lifecycle,
+  as their `*_android` implementations).
+
 ## Open
 
 - `sqlite3` (3.2M) and drift (1.7M) now use build hooks that download a
