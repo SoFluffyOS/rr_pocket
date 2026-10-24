@@ -39,10 +39,12 @@ class RrPocketPlugin extends LumidePlugin {
   }
 
   Future<void> _registerCommands(LumideContext context) async {
-    final callbacks = <String, Future<void> Function()>{
-      cmdPair: commands.pair,
-      cmdPin: commands.pin,
-      cmdShowPhone: commands.showPhone,
+    final callbacks = <String, Future<void> Function(Map<String, dynamic>?)>{
+      cmdPair: (_) => commands.pair(),
+      cmdPin: (_) => commands.pin(),
+      cmdShowPhone: (_) => commands.showPhone(),
+      cmdForget: (_) => commands.forget(),
+      cmdMenu: commands.menu,
     };
     await Future.wait([
       for (final MapEntry(key: id, value: callback) in callbacks.entries)
@@ -51,7 +53,7 @@ class RrPocketPlugin extends LumidePlugin {
               id: id,
               title: pocketCommandTitle(id),
               category: pluginName,
-              callback: ([_]) => _guard(id, callback),
+              callback: ([args]) => _guard(id, () => callback(args)),
             )
             .catchError(
               (Object error, StackTrace stackTrace) =>

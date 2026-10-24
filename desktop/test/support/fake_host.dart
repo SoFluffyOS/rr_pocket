@@ -22,6 +22,8 @@ class FakeHost implements LumideContext {
   late final FakeEditor editor = FakeEditor();
   @override
   late final FakeStatusBar statusBar = FakeStatusBar();
+  @override
+  late final FakeCommands commands = FakeCommands();
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -216,6 +218,19 @@ class FakeEditor implements LumideEditor {
 
   @override
   Future<String?> getActiveDocumentUri() async => activeUri;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakeCommands implements LumideCommands {
+  final executed = <String>[];
+
+  @override
+  Future<bool> executeCommand(String id, [Map<String, dynamic>? args]) async {
+    executed.add(id);
+    return true;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

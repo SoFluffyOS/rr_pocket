@@ -8,6 +8,8 @@ activation_events:
   - 'onCommand:rr_pocket.pair'
   - 'onCommand:rr_pocket.pin'
   - 'onCommand:rr_pocket.showPhone'
+  - 'onCommand:rr_pocket.forget'
+  - 'onCommand:rr_pocket.menu'
 
 permissions:
   - fileSystem:
@@ -25,4 +27,10 @@ contributes:
       category: 'RR Pocket'
     - id: rr_pocket.showPhone
       title: 'RR Pocket: Show Phone'
+      category: 'RR Pocket'
+    - id: rr_pocket.forget
+      title: 'RR Pocket: Forget Phone'
+      category: 'RR Pocket'
+    - id: rr_pocket.menu
+      title: 'RR Pocket: Menu'
       category: 'RR Pocket'

@@ -50,12 +50,20 @@ class PocketCommands {
   /// status bar to it.
   int _pairings = 0;
 
+  /// The phone as last seen, for the menu; null before the first look.
+  PhoneStatus? _status;
+
+  Future<void> _show(PhoneStatus status) async {
+    _status = status;
+    await statusBar.update(status);
+  }
+
   /// Asks the phone how it is, and shows the answer in the status bar.
   Future<PhoneStatus> refresh() async {
     final pairings = _pairings;
     final phone = await Phone.tryLoad(config);
     if (phone == null) {
-      await statusBar.update(const NotPaired());
+      await _show(const NotPaired());
       return const NotPaired();
     }
     final address = PhoneAddress(phone.host, phone.port).toString();
@@ -68,7 +76,7 @@ class PocketCommands {
     } finally {
       phone.close();
     }
-    if (pairings == _pairings) await statusBar.update(status);
+    if (pairings == _pairings) await _show(status);
     return status;
   }
 
@@ -202,7 +210,7 @@ class PocketCommands {
         },
       );
       final status = Reachable.fromHello(address, result.hello);
-      await statusBar.update(status);
+      await _show(status);
       // Registered only now: Lumide's running Flutter daemon never read it.
       final restart = switch (result.registered) {
         true => ' If RR Pocket is not in the device list, restart Lumide: '
@@ -255,6 +263,86 @@ class PocketCommands {
     } finally {
       phone.close();
     }
+  }
+
+  /// Forgets the paired phone: Lumide and the `pocket` command stop using
+  /// it, and Flutter drops the device when its ping next fails. The phone
+  /// keeps its code, so pairing again works.
+  Future<void> forget() async {
+    final phone = await Phone.tryLoad(config);
+    if (phone == null) {
+      return _info('RR Pocket is not paired with a phone.');
+    }
+    phone.close();
+    final address = PhoneAddress(phone.host, phone.port);
+    final confirmed = await context.window.showConfirmDialog(
+      'Forget RR Pocket at $address? Lumide and the pocket command stop '
+      'using it. Pair again any time.',
+      title: pluginName,
+    );
+    if (!confirmed) return;
+    for (final file in [config.deviceFile, config.installFailedFile]) {
+      if (await file.exists()) await file.delete();
+    }
+    _pairings++;
+    await _show(const NotPaired());
+    await _info('Forgot RR Pocket at $address.');
+  }
+
+  /// RR Pocket's menu, from the status bar: the phone, then what can be
+  /// done with it. [args] carries where the item was clicked.
+  Future<void> menu([Map<String, dynamic>? args]) async {
+    final status = _status ?? await _statusFromFile();
+    QuickPickItem action(String command, String label, String icon) =>
+        QuickPickItem(label: label, payload: command, icon: icon);
+    final selected = await context.window.showQuickPick(
+      [
+        QuickPickItem(
+          label: switch (status) {
+            Reachable(:final name) => name,
+            Unreachable() => 'Not answering',
+            NotPaired() => 'Not paired',
+          },
+          description: switch (status) {
+            Reachable(:final address, :final flutterVersion) =>
+              '$address · Flutter $flutterVersion',
+            Unreachable(:final address) => address,
+            NotPaired() => 'Pair once, then run on it from the device list',
+          },
+          icon: iconPhone,
+          enabled: false,
+        ),
+        const QuickPickItem(label: '', isSeparator: true),
+        ...switch (status) {
+          NotPaired() => [action(cmdPair, 'Pair with Phone', iconPair)],
+          _ => [
+              action(cmdShowPhone, 'Check Phone Again', iconCheck),
+              action(cmdPin, 'Match Plugin Versions', iconPin),
+              action(cmdPair, 'Pair with Another Phone', iconPair),
+              action(cmdForget, 'Forget This Phone', iconForget),
+            ],
+        },
+      ],
+      placeholder: pluginName,
+      position: switch (args?['position']) {
+        final Map position => position.cast<String, int>(),
+        _ => null,
+      },
+    );
+    final command = selected?.payload;
+    if (command is! String) return;
+    await context.commands.executeCommand(command);
+  }
+
+  /// Before the phone was asked: paired or not, from the pairing file.
+  Future<PhoneStatus> _statusFromFile() async {
+    final phone = await Phone.tryLoad(config);
+    if (phone == null) return const NotPaired();
+    phone.close();
+    return Unreachable(
+      address: PhoneAddress(phone.host, phone.port).toString(),
+      reason: 'not checked yet',
+    );
   }
 
   Future<void> showPhone() async {

@@ -14,12 +14,18 @@ const String cliLibrary = 'package:rr_pocket/pocket.dart';
 const String cmdPair = 'rr_pocket.pair';
 const String cmdPin = 'rr_pocket.pin';
 const String cmdShowPhone = 'rr_pocket.showPhone';
+const String cmdForget = 'rr_pocket.forget';
+const String cmdMenu = 'rr_pocket.menu';
 
 // executables
 const String executableFlutter = 'flutter';
 
 // icons
 const String iconPhone = 'smartphone';
+const String iconCheck = 'refresh-cw';
+const String iconPin = 'package';
+const String iconPair = 'link';
+const String iconForget = 'unlink';
 
 /// The first line of the pubspec_overrides.yaml that `pocket pin` writes, so
 /// it replaces only its own. `tool/pin_plugins.py` writes the same.

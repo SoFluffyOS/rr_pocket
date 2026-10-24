@@ -8,6 +8,8 @@ const Map<String, String> pocketCommandTitles = {
   cmdPair: 'RR Pocket: Pair with Phone',
   cmdPin: 'RR Pocket: Match Plugin Versions',
   cmdShowPhone: 'RR Pocket: Show Phone',
+  cmdForget: 'RR Pocket: Forget Phone',
+  cmdMenu: 'RR Pocket: Menu',
 };
 
 /// Title of a registered command, falling back to its id.

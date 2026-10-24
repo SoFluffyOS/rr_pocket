@@ -397,11 +397,79 @@ void main() {
       expect(host.statusBar.items.values.single.$1, 'Test Phone');
     }, timeout: const Timeout(Duration(seconds: 30)));
 
-    test('offers to pair, and hides the status item, before pairing', () async {
+    test('offers to pair before pairing, the status item saying so', () async {
       await commands.showPhone();
 
       expect(host.window.confirmations.single, contains('not paired yet'));
-      expect(host.statusBar.items, isEmpty);
+      expect(host.statusBar.items.values.single.$2, contains('not paired'));
+    });
+  });
+
+  group('forget', () {
+    test('forgets the phone once confirmed', () async {
+      await savePairing();
+      host.window.confirm = true;
+
+      await commands.forget();
+
+      expect(config.deviceFile.existsSync(), isFalse);
+      expect(host.statusBar.items.values.single.$2, contains('not paired'));
+      expect(messages(MessageType.info).single, startsWith('Forgot RR Pocket'));
+    });
+
+    test('keeps the phone when not confirmed', () async {
+      await savePairing();
+
+      await commands.forget();
+
+      expect(config.deviceFile.existsSync(), isTrue);
+    });
+
+    test('says so when nothing is paired', () async {
+      await commands.forget();
+
+      expect(host.window.confirmations, isEmpty);
+      expect(messages(MessageType.info).single, contains('not paired'));
+    });
+  });
+
+  group('menu', () {
+    List<Object?> payloads() => [
+          for (final item in host.window.lastPick)
+            if (item.enabled && !item.isSeparator) item.payload,
+        ];
+
+    test('before pairing offers only pairing', () async {
+      host.window.pickPayload = cmdPair;
+
+      await commands.menu();
+
+      expect(host.window.lastPick.first.label, 'Not paired');
+      expect(payloads(), [cmdPair]);
+      expect(host.commands.executed, [cmdPair]);
+    });
+
+    test('once paired, shows the phone and what to do with it', () async {
+      await savePairing();
+      await commands.refresh();
+      host.window.pickPayload = cmdForget;
+
+      await commands.menu({
+        'position': {'x': 10, 'y': 20},
+      });
+
+      expect(host.window.lastPick.first.label, 'Test Phone');
+      expect(host.window.lastPick.first.enabled, isFalse);
+      expect(payloads(), [cmdShowPhone, cmdPin, cmdPair, cmdForget]);
+      expect(host.commands.executed, [cmdForget]);
+    });
+
+    test('runs nothing when dismissed', () async {
+      host.window.pickPayload = null;
+
+      await commands.menu();
+
+      expect(host.commands.executed, isEmpty);
     });
   });
 }

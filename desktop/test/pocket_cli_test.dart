@@ -159,6 +159,13 @@ void main() {
     });
   });
 
+  test('forget unpairs this computer', () async {
+    expect(await cli(['forget']), 0);
+    expect(config.deviceFile.existsSync(), isFalse);
+    expect(await cli(['ping']), 1);
+    expect(await cli(['forget']), 0);
+  });
+
   test('ping fails before pairing', () async {
     final unpaired = PocketCli(config: PocketConfig('${temp.path}/none'));
     expect(await unpaired(['ping']), 1);

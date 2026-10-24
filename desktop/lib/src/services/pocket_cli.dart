@@ -64,6 +64,7 @@ class PocketCli {
         ['pair'] => pairFound(),
         ['pair', '--qr'] => pairByQr(),
         ['pair', final address, final code] => pair(address, code),
+        ['forget'] => forget(),
         ['ping'] => ping(),
         ['pin'] => pin(Directory.current),
         ['install', final bundle, _] => _recordInstall(() => install(bundle)),
@@ -91,6 +92,7 @@ class PocketCli {
       'usage: pocket pair                          (once: finds the phone)\n'
       '       pocket pair --qr                     (shows a QR code to scan)\n'
       '       pocket pair <phone address> <code>   (typed, as the phone shows)\n'
+      '       pocket forget                        (unpairs this computer)\n'
       '       pocket pin                           (in a project)\n'
       '       then: flutter run -d $deviceId',
     );
@@ -193,6 +195,24 @@ class PocketCli {
       force: true,
     );
     stdout.writeln('Run a project on it with: flutter run -d $deviceId');
+    return 0;
+  }
+
+  /// Forgets the paired phone. Flutter drops the device when its ping next
+  /// fails; the phone keeps its code, so pairing again works.
+  Future<int> forget() async {
+    final phone = await Phone.tryLoad(config);
+    if (phone == null) {
+      stdout.writeln('RR Pocket is not paired with a phone.');
+      return 0;
+    }
+    phone.close();
+    for (final file in [config.deviceFile, config.installFailedFile]) {
+      if (file.existsSync()) file.deleteSync();
+    }
+    stdout.writeln(
+      'Forgot RR Pocket at ${PhoneAddress(phone.host, phone.port)}.',
+    );
     return 0;
   }
 
