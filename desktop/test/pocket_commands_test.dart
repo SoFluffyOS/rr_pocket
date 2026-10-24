@@ -14,19 +14,27 @@ void main() {
   late FakeHost host;
   late PocketConfig config;
   late PocketCommands commands;
+  late List<FoundPhone> found;
 
   setUp(() async {
     temp = await Directory.systemTemp.createTemp('rr_pocket_test');
     phone = await FakePhone.start(plugins: {'camera': '0.12.1'});
     host = FakeHost(workspaceFolder: temp.path);
     config = PocketConfig('${temp.path}/config');
+    found = [];
     commands = PocketCommands(
       host,
       config: config,
       statusBar: StatusBarService(host),
       projects: ProjectPicker(host),
       helperCommand: () async => ['dart', '/src/bin/pocket.dart'],
+      discover: () async => found,
+      addresses: () async => ['127.0.0.1'],
+      computer: 'Mac',
+      newToken: () => 'the-token',
     );
+    // Pairing asks how; typing is what most tests answer.
+    host.window.pickPayload = 'type';
   });
 
   tearDown(() async {
@@ -117,6 +125,92 @@ void main() {
       expect(await changing.ensureRegistered(), isFalse);
       helper = ['dart', '/new/pocket.dart'];
       expect(await changing.ensureRegistered(), isTrue);
+    });
+
+    test('offers the phones found, then a QR code, then typing', () async {
+      found = [
+        FoundPhone(name: 'Pixel 7', host: '127.0.0.1', port: phone.port)
+      ];
+      host.window.pickPayload = null;
+
+      await commands.pair();
+
+      expect([
+        for (final item in host.window.lastPick) item.payload
+      ], [
+        'found:0',
+        'qr',
+        'type',
+      ]);
+    });
+
+    test('pairs with a found phone once its user allows it', () async {
+      found = [
+        FoundPhone(name: 'Pixel 7', host: '127.0.0.1', port: phone.port)
+      ];
+      host.window.pickPayload = 'found:0';
+
+      await commands.pair();
+
+      expect(phone.pairRequests, ['Mac']);
+      expect(host.window.progressTitles, contains('Tap Allow on Pixel 7'));
+      final saved = jsonDecode(await config.deviceFile.readAsString());
+      expect(
+          saved, {'host': '127.0.0.1', 'port': phone.port, 'code': phone.code});
+      expect(messages(MessageType.info).single, startsWith('Paired with'));
+    });
+
+    test('a found phone whose user refuses keeps no pairing', () async {
+      found = [
+        FoundPhone(name: 'Pixel 7', host: '127.0.0.1', port: phone.port)
+      ];
+      host.window.pickPayload = 'found:0';
+      phone.pairAnswer = PairAnswer.refuse;
+
+      await expectLater(commands.pair(), throwsA(isA<PocketException>()));
+      expect(config.deviceFile.existsSync(), isFalse);
+    });
+
+    test('pairs with the phone that scans the QR code', () async {
+      host.window.pickPayload = 'qr';
+
+      final pairing = commands.pair();
+      final panel = await host.window.panelOpened.future;
+      final page = Uri.parse(panel.url);
+      final client = HttpClient();
+      final request = await client.post('127.0.0.1', page.port, '/pair');
+      request.write(jsonEncode({
+        'token': 'the-token',
+        'name': 'Pixel 7',
+        'address': '127.0.0.1',
+        'port': phone.port,
+        'code': phone.code,
+      }));
+      final response = await request.close();
+      await response.drain<void>();
+      client.close();
+      await pairing;
+
+      expect(response.statusCode, 200);
+      expect(panel.disposed, isTrue);
+      expect(config.deviceFile.existsSync(), isTrue);
+      expect(messages(MessageType.info).single, startsWith('Paired with'));
+    });
+
+    test('closing the QR code ends pairing quietly', () async {
+      host.window.pickPayload = 'qr';
+
+      final pairing = commands.pair();
+      final panel = await host.window.panelOpened.future;
+      while (!host.window.progressTitles.last.startsWith('Waiting')) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      host.window.lastProgress?.cancel();
+      await pairing;
+
+      expect(panel.disposed, isTrue);
+      expect(host.window.messages, isEmpty);
+      expect(config.deviceFile.existsSync(), isFalse);
     });
 
     test('stops at an address that is not one', () async {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' as io;
 
 import 'package:lumide_api/lumide_api.dart';
@@ -111,6 +112,9 @@ class FakeWindow implements LumideWindow {
     return null;
   }
 
+  /// The progress shown last, to cancel it from a test.
+  FakeProgress? lastProgress;
+
   @override
   Future<T> withProgress<T>({
     required String title,
@@ -119,7 +123,25 @@ class FakeWindow implements LumideWindow {
     required Future<T> Function(LumideProgress progress) task,
   }) {
     progressTitles.add(title);
-    return task(FakeProgress());
+    final progress = lastProgress = FakeProgress();
+    return task(progress);
+  }
+
+  final panels = <FakePanel>[];
+
+  /// Completes when a panel opens, for tests to act on it.
+  Completer<FakePanel> panelOpened = Completer<FakePanel>();
+
+  @override
+  Future<LumideWebviewPanel> createWebviewPanel(
+    String viewType,
+    String title, {
+    Map<String, dynamic>? options,
+  }) async {
+    final panel = FakePanel('${options?['url']}');
+    panels.add(panel);
+    if (!panelOpened.isCompleted) panelOpened.complete(panel);
+    return panel;
   }
 
   @override
@@ -127,6 +149,29 @@ class FakeWindow implements LumideWindow {
 }
 
 class FakeProgress implements LumideProgress {
+  void Function()? _cancel;
+
+  void cancel() => _cancel?.call();
+
+  @override
+  LumideDisposable onCancel(void Function() callback) {
+    _cancel = callback;
+    return LumideDisposable(() => _cancel = null);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakePanel implements LumideWebviewPanel {
+  FakePanel(this.url);
+
+  final String url;
+  bool disposed = false;
+
+  @override
+  Future<void> dispose() async => disposed = true;
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

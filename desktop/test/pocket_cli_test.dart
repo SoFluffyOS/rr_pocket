@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:rr_pocket/rr_pocket.dart';
@@ -74,6 +75,88 @@ void main() {
 
     expect(await Phone.tryLoad(config), isNull);
     expect(await cli(['ping']), 1);
+  });
+
+  group('pair', () {
+    late List<FoundPhone> found;
+    late List<List<String>> ranFlutter;
+    late int pairPort;
+    late PocketCli pairing;
+
+    setUp(() async {
+      config.deviceFile.deleteSync();
+      found = [];
+      ranFlutter = [];
+      final free = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      pairPort = free.port;
+      await free.close();
+      pairing = PocketCli(
+        config: config,
+        environment: const {},
+        discover: () async => found,
+        addresses: () async => ['127.0.0.1'],
+        flutter: (arguments, {workingDirectory}) async {
+          ranFlutter.add(arguments);
+          return (exitCode: 0, stdout: '', stderr: '');
+        },
+        helperCommand: () async => ['dart', 'pocket.dart'],
+        computer: 'Mac',
+        newToken: () => 'the-token',
+        pairPort: pairPort,
+      );
+    });
+
+    test('asks the phone it finds, and registers the device', () async {
+      found = [
+        FoundPhone(name: 'Pixel 7', host: '127.0.0.1', port: phone.port)
+      ];
+
+      expect(await pairing(['pair']), 0);
+
+      expect(phone.pairRequests, ['Mac']);
+      expect(config.deviceFile.existsSync(), isTrue);
+      expect(ranFlutter.last.take(2), ['custom-devices', 'add']);
+      expect(config.registeredFile.existsSync(), isTrue);
+    });
+
+    test('shows a QR code when no phone is found, and pairs who scans it',
+        () async {
+      final paired = pairing(['pair']);
+      // The phone, once it scanned the code.
+      HttpClientResponse? response;
+      for (var attempt = 0; response == null && attempt < 50; attempt++) {
+        try {
+          final client = HttpClient();
+          final request = await client.post('127.0.0.1', pairPort, '/pair');
+          request.write(jsonEncode({
+            'token': 'the-token',
+            'name': 'Pixel 7',
+            'address': '127.0.0.1',
+            'port': phone.port,
+            'code': phone.code,
+          }));
+          response = await request.close();
+          await response.drain<void>();
+          client.close();
+        } on SocketException {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+      }
+
+      expect(response?.statusCode, 200);
+      expect(await paired, 0);
+      expect(config.deviceFile.existsSync(), isTrue);
+    });
+
+    test('says why a found phone did not pair', () async {
+      found = [
+        FoundPhone(name: 'Pixel 7', host: '127.0.0.1', port: phone.port)
+      ];
+      phone.pairAnswer = PairAnswer.refuse;
+
+      expect(await pairing(['pair']), 1);
+      expect(config.deviceFile.existsSync(), isFalse);
+    });
   });
 
   test('ping fails before pairing', () async {

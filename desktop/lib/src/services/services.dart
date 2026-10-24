@@ -1,5 +1,9 @@
+export 'computer.dart';
+export 'discovery.dart';
 export 'flutter_device.dart';
 export 'log_service.dart';
+export 'pair_listener.dart';
+export 'pair_request.dart';
 export 'phone.dart';
 export 'pocket_cli.dart';
 export 'pocket_commands.dart';

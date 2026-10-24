@@ -3,7 +3,11 @@ import 'dart:io';
 
 import 'package:rr_pocket/src/constants.dart';
 import 'package:rr_pocket/src/models/models.dart';
+import 'package:rr_pocket/src/services/computer.dart';
+import 'package:rr_pocket/src/services/discovery.dart';
 import 'package:rr_pocket/src/services/flutter_device.dart';
+import 'package:rr_pocket/src/services/pair_listener.dart';
+import 'package:rr_pocket/src/services/pair_request.dart';
 import 'package:rr_pocket/src/services/phone.dart';
 import 'package:rr_pocket/src/services/project_files.dart';
 
@@ -20,11 +24,35 @@ import 'package:rr_pocket/src/services/project_files.dart';
 /// Flutter calls the rest: `ping`, `install <flutter_assets> <app>`,
 /// `run <app>`, `uninstall <app>`.
 class PocketCli {
-  PocketCli({PocketConfig? config, Map<String, String>? environment})
-      : config = config ?? PocketConfig(),
-        environment = environment ?? Platform.environment;
+  PocketCli({
+    PocketConfig? config,
+    Map<String, String>? environment,
+    Future<List<FoundPhone>> Function()? discover,
+    Future<List<String>> Function()? addresses,
+    RunFlutter? flutter,
+    Future<List<String>> Function()? helperCommand,
+    String? computer,
+    String Function()? newToken,
+    this.pairPort = 0,
+  })  : config = config ?? PocketConfig(),
+        _newToken = newToken ?? newPairingToken,
+        environment = environment ?? Platform.environment,
+        _discover = discover ?? discoverPhones,
+        _addresses = addresses ?? localAddresses,
+        _flutter = flutter ?? runFlutterProcess,
+        _helperCommand = helperCommand ?? currentHelperCommand,
+        _computer = computer ?? computerName();
 
   final PocketConfig config;
+  final Future<List<FoundPhone>> Function() _discover;
+  final Future<List<String>> Function() _addresses;
+  final RunFlutter _flutter;
+  final Future<List<String>> Function() _helperCommand;
+  final String _computer;
+  final String Function() _newToken;
+
+  /// The port the QR listener takes; any free one by default.
+  final int pairPort;
 
   /// Flutter sets FLUTTER_ROOT when it calls the tool.
   final Map<String, String> environment;
@@ -33,6 +61,8 @@ class PocketCli {
   Future<int> call(List<String> args) async {
     try {
       return await switch (args) {
+        ['pair'] => pairFound(),
+        ['pair', '--qr'] => pairByQr(),
         ['pair', final address, final code] => pair(address, code),
         ['ping'] => ping(),
         ['pin'] => pin(Directory.current),
@@ -58,13 +88,16 @@ class PocketCli {
 
   Future<int> usage() async {
     stderr.writeln(
-      'usage: pocket pair <phone address> <code>   (once)\n'
+      'usage: pocket pair                          (once: finds the phone)\n'
+      '       pocket pair --qr                     (shows a QR code to scan)\n'
+      '       pocket pair <phone address> <code>   (typed, as the phone shows)\n'
       '       pocket pin                           (in a project)\n'
       '       then: flutter run -d $deviceId',
     );
     return 64;
   }
 
+  /// Pairs with the phone typed in: the last fallback (docs/pairing.md).
   Future<int> pair(String address, String code) async {
     final parsed = PhoneAddress.tryParse(address);
     if (parsed == null) {
@@ -73,15 +106,89 @@ class PocketCli {
       );
     }
     final phone = Phone(parsed.host, parsed.port, normalizePairingCode(code));
-    final hello = await phone.hello();
+    return _finish(phone, await phone.hello());
+  }
+
+  /// Finds RR Pocket on the network and asks it to pair; the phone asks its
+  /// user. Shows a QR code when no phone answers.
+  Future<int> pairFound() async {
+    stdout.writeln('Looking for RR Pocket on this network...');
+    final phones = await _discover();
+    if (phones.isEmpty) {
+      stdout.writeln(
+        'None found: the network may block that. Scan this QR code '
+        'instead.\n',
+      );
+      return pairByQr();
+    }
+    final found = switch (phones) {
+      [final only] => only,
+      _ => _choose(phones),
+    };
+    if (found == null) return pairByQr();
+    stdout.writeln(
+      'Found ${found.name} at ${found.host}. Tap Allow on the phone...',
+    );
+    final code = await requestPairing(found.host, found.port, _computer);
+    final phone = Phone(found.host, found.port, code);
+    return _finish(phone, await phone.hello());
+  }
+
+  /// Shows a QR code for the phone to scan, and waits for it.
+  Future<int> pairByQr() async {
+    final listener = await PairListener.start(
+      computer: _computer,
+      hosts: await _addresses(),
+      verify: (phone) => phone.hello().timeout(const Duration(seconds: 10)),
+      token: _newToken(),
+      port: pairPort,
+    );
+    final cancel = ProcessSignal.sigint.watch().listen((_) {
+      unawaited(listener.close());
+    });
+    try {
+      stdout.writeln(
+        qrTerminal(
+          listener.link.toUri().toString(),
+          ansi: stdout.hasTerminal && stdout.supportsAnsiEscapes,
+        ),
+      );
+      stdout.writeln(
+        '\nScan it with RR Pocket (Scan QR code) or the phone\'s camera, '
+        'then tap Allow.\n'
+        'Or type what the phone shows: pocket pair <address> <code>',
+      );
+      final paired = await listener.paired;
+      return await _finish(paired.phone, paired.hello);
+    } finally {
+      await cancel.cancel();
+      await listener.close();
+    }
+  }
+
+  /// Asks which phone, or null for a QR code instead.
+  FoundPhone? _choose(List<FoundPhone> phones) {
+    stdout.writeln('Found ${phones.length} phones running RR Pocket:');
+    for (final (index, phone) in phones.indexed) {
+      stdout.writeln('  ${index + 1}. ${phone.name} (${phone.host})');
+    }
+    stdout.write('Pair with which? [1-${phones.length}, or q for a QR code] ');
+    final answer = stdin.readLineSync()?.trim() ?? '';
+    final index = int.tryParse(answer);
+    if (index == null || index < 1 || index > phones.length) return null;
+    return phones[index - 1];
+  }
+
+  Future<int> _finish(Phone phone, Map<String, Object?> hello) async {
+    final address = PhoneAddress(phone.host, phone.port);
     await phone.save(config);
     stdout.writeln(
-      'Paired with ${hello['name']} at $parsed '
+      'Paired with ${hello['name']} at $address '
       '(Flutter ${hello['flutterVersion']}).',
     );
     await ensureDeviceRegistered(
-      runFlutterProcess,
-      await currentHelperCommand(),
+      _flutter,
+      await _helperCommand(),
       config,
       force: true,
     );

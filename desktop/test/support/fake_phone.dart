@@ -4,8 +4,16 @@ import 'dart:io';
 
 /// RR Pocket's control server, as far as the computer sees it: checks the
 /// pairing code, answers `/hello`, takes a bundle, runs and stops.
+/// How the fake phone's user answers `POST /pair`.
+enum PairAnswer { allow, refuse, noAnswer, busy }
+
 class FakePhone {
   FakePhone._(this._server, this.code, this.plugins, this.engineRevision);
+
+  PairAnswer pairAnswer = PairAnswer.allow;
+
+  /// The computer names that asked to pair.
+  final pairRequests = <String>[];
 
   static Future<FakePhone> start({
     String code = '12345678',
@@ -35,6 +43,19 @@ class FakePhone {
 
   Future<void> _handle(HttpRequest request) async {
     final response = request.response;
+    if (request.method == 'POST' && request.uri.path == '/pair') {
+      final body = jsonDecode(await utf8.decodeStream(request)) as Map;
+      pairRequests.add('${body['computer']}');
+      final (status, reply) = switch (pairAnswer) {
+        PairAnswer.allow => (200, {'code': code}),
+        PairAnswer.refuse => (403, {'error': 'pairing refused on the phone'}),
+        PairAnswer.noAnswer => (408, {'error': 'no answer on the phone'}),
+        PairAnswer.busy => (409, {'error': 'another computer is asking'}),
+      };
+      response.statusCode = status;
+      response.write(jsonEncode(reply));
+      return response.close();
+    }
     if (request.headers.value('authorization') != 'Bearer $code') {
       response.statusCode = 401;
       response.write(jsonEncode({'error': 'wrong pairing code'}));

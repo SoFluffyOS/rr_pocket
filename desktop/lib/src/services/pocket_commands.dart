@@ -4,7 +4,11 @@ import 'dart:io' show Directory;
 import 'package:lumide_api/lumide_api.dart';
 import 'package:rr_pocket/src/constants.dart';
 import 'package:rr_pocket/src/models/models.dart';
+import 'package:rr_pocket/src/services/computer.dart';
+import 'package:rr_pocket/src/services/discovery.dart';
 import 'package:rr_pocket/src/services/flutter_device.dart';
+import 'package:rr_pocket/src/services/pair_listener.dart';
+import 'package:rr_pocket/src/services/pair_request.dart';
 import 'package:rr_pocket/src/services/phone.dart';
 import 'package:rr_pocket/src/services/project_files.dart';
 import 'package:rr_pocket/src/services/project_picker.dart';
@@ -20,13 +24,25 @@ class PocketCommands {
     required this.statusBar,
     required this.projects,
     Future<List<String>> Function()? helperCommand,
-  }) : _helperCommand = helperCommand;
+    Future<List<FoundPhone>> Function()? discover,
+    Future<List<String>> Function()? addresses,
+    String? computer,
+    String Function()? newToken,
+  })  : _helperCommand = helperCommand,
+        _newToken = newToken ?? newPairingToken,
+        _discover = discover ?? discoverPhones,
+        _addresses = addresses ?? localAddresses,
+        _computer = computer ?? computerName();
 
   final LumideContext context;
   final PocketConfig config;
   final StatusBarService statusBar;
   final ProjectPicker projects;
   final Future<List<String>> Function()? _helperCommand;
+  final Future<List<FoundPhone>> Function() _discover;
+  final Future<List<String>> Function() _addresses;
+  final String _computer;
+  final String Function() _newToken;
 
   static const Duration helloTimeout = Duration(seconds: 10);
 
@@ -56,7 +72,94 @@ class PocketCommands {
     return status;
   }
 
+  /// Pairs by the best route that works (docs/pairing.md): a phone found on
+  /// the network, which asks its user; a QR code the phone scans; or the
+  /// address and code typed in.
   Future<void> pair() async {
+    final phones = await context.window.withProgress(
+      title: 'Looking for RR Pocket on this network',
+      task: (_) => _discover().catchError((Object _) => <FoundPhone>[]),
+    );
+    final picked = await context.window.showQuickPick(
+      [
+        for (final (index, phone) in phones.indexed)
+          QuickPickItem(
+            label: phone.name,
+            description: phone.host,
+            detail: 'Found on this network: tap Allow on the phone',
+            payload: 'found:$index',
+          ),
+        const QuickPickItem(
+          label: 'Show a QR code',
+          description: 'Scan it with RR Pocket',
+          payload: 'qr',
+        ),
+        const QuickPickItem(
+          label: 'Type the address and code',
+          description: 'As RR Pocket shows them',
+          payload: 'type',
+        ),
+      ],
+      placeholder: switch (phones.isEmpty) {
+        true => 'No phone found on this network. Pair another way',
+        false => 'Pair with',
+      },
+    );
+    final payload = picked?.payload;
+    if (payload == 'qr') return _pairByQr();
+    if (payload == 'type') return _pairTyped();
+    if (payload is! String || !payload.startsWith('found:')) return;
+    final index = int.tryParse(payload.substring('found:'.length)) ?? -1;
+    if (index < 0 || index >= phones.length) return;
+    return _pairFound(phones[index]);
+  }
+
+  Future<void> _pairFound(FoundPhone found) async {
+    final code = await context.window.withProgress(
+      title: 'Tap Allow on ${found.name}',
+      task: (_) => requestPairing(found.host, found.port, _computer),
+    );
+    final phone = Phone(found.host, found.port, code);
+    await _finish(phone, () => phone.hello().timeout(helloTimeout));
+  }
+
+  Future<void> _pairByQr() async {
+    final listener = await PairListener.start(
+      computer: _computer,
+      hosts: await _addresses(),
+      verify: (phone) => phone.hello().timeout(helloTimeout),
+      token: _newToken(),
+    );
+    LumideWebviewPanel? panel;
+    try {
+      panel = await context.window.createWebviewPanel(
+        'rr_pocket.pair',
+        'Pair with RR Pocket',
+        options: {'url': '${listener.pageUri}'},
+      );
+      final PairedPhone paired;
+      try {
+        paired = await context.window.withProgress(
+          title: 'Waiting for RR Pocket to scan the code',
+          cancellable: true,
+          task: (progress) {
+            progress.onCancel(() => unawaited(listener.close()));
+            return listener.paired;
+          },
+        );
+      } on PairingCancelled {
+        return;
+      }
+      await panel.dispose();
+      panel = null;
+      await _finish(paired.phone, () async => paired.hello);
+    } finally {
+      await listener.close();
+      await panel?.dispose().catchError((Object _) {});
+    }
+  }
+
+  Future<void> _pairTyped() async {
     final typed = await context.window.showInputBox(
       title: 'Pair with RR Pocket',
       prompt: 'The address RR Pocket shows on the phone',
@@ -76,23 +179,32 @@ class PocketCommands {
       placeHolder: '1234-5678',
     );
     if (code == null || code.trim().isEmpty) return;
-
     final phone = Phone(address.host, address.port, normalizePairingCode(code));
+    await _finish(phone, () => phone.hello().timeout(helloTimeout));
+  }
+
+  /// Checks the phone with its code ([hello]), keeps the pairing and makes
+  /// sure Flutter knows the device.
+  Future<void> _finish(
+    Phone phone,
+    Future<Map<String, Object?>> Function() hello,
+  ) async {
+    final address = PhoneAddress(phone.host, phone.port).toString();
     try {
-      final hello = await context.window.withProgress(
+      final result = await context.window.withProgress(
         title: 'Pairing with RR Pocket',
         task: (_) async {
-          final hello = await phone.hello().timeout(helloTimeout);
+          final answer = await hello();
           await phone.save(config);
           _pairings++;
           final registered = await ensureRegistered();
-          return (hello: hello, registered: registered);
+          return (hello: answer, registered: registered);
         },
       );
-      final status = Reachable.fromHello(address.toString(), hello.hello);
+      final status = Reachable.fromHello(address, result.hello);
       await statusBar.update(status);
       // Registered only now: Lumide's running Flutter daemon never read it.
-      final restart = switch (hello.registered) {
+      final restart = switch (result.registered) {
         true => ' If RR Pocket is not in the device list, restart Lumide: '
             'Flutter reads new devices when it starts.',
         false => '',

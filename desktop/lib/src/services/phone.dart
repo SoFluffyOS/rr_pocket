@@ -82,7 +82,7 @@ class Phone {
   static Future<Phone> load(PocketConfig config) async {
     if (await tryLoad(config) case final phone?) return phone;
     throw const PocketException(
-      'not paired yet: pocket pair <address> <code>',
+      'not paired yet: run pocket pair',
     );
   }
 

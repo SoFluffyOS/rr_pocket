@@ -1,6 +1,9 @@
 export 'device_config.dart';
 export 'flutter_project.dart';
+export 'found_phone.dart';
 export 'overrides.dart';
+export 'pair_link.dart';
 export 'phone_address.dart';
 export 'phone_status.dart';
 export 'plugin_versions.dart';
+export 'qr_render.dart';

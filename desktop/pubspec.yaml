@@ -12,11 +12,13 @@ executables:
   pocket: pocket
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.4.0 <4.0.0'
 
 dependencies:
   lumide_api: 1.13.0
+  multicast_dns: ^0.3.2+5
   path: 1.9.1
+  qr: ^3.0.2
 
 dev_dependencies:
   lints: ^6.0.0
