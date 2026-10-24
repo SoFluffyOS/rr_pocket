@@ -31,20 +31,24 @@ Run your Flutter project on your phone over Wi-Fi. No Android SDK, no adb.
 RR Pocket runs the Flutter project you're working on, on your Android phone, straight from your computer. No Android SDK, no Gradle build, no adb: just the Flutter SDK you already have.
 
 HOW IT WORKS
-1. Open RR Pocket. It shows its address and a pairing code.
+1. Open RR Pocket.
 2. On your computer, install the pocket command and pair once:
    dart pub global activate rr_pocket
-   pocket pair <address> <code>
+   pocket pair
+   It finds the phone on your Wi-Fi and asks you to allow it there. Or scan the QR code it shows, or type the address and code the phone shows.
 3. In any Flutter project: flutter run -d pocket
+
+Use Lumide? The same package is a Lumide plugin: pair from the status bar, then pick RR Pocket in the device list.
 
 Your app opens inside RR Pocket. Change your code, press r, and hot reload shows it in under a second. Hot restart, DevTools, breakpoints and your print output work like on any other device. Press q and the phone is back to RR Pocket.
 
-26 PLUGINS BUILT IN
-Your app can use camera, geolocator, flutter_local_notifications, local_auth, image_picker, file_picker, url_launcher, share_plus, shared_preferences, path_provider, sqflite, flutter_secure_storage, video_player, just_audio, audio_session, record, webview_flutter, permission_handler, connectivity_plus, device_info_plus, package_info_plus, battery_plus, sensors_plus, vibration, wakelock_plus and in_app_review. Plain Dart packages work as they are.
+29 PLUGINS BUILT IN
+Your app can use camera, geolocator, flutter_local_notifications, local_auth, image_picker, file_picker, url_launcher, share_plus, shared_preferences, path_provider, sqflite, Isar Community, flutter_secure_storage, video_player, just_audio, audio_session, record, webview_flutter, permission_handler, connectivity_plus, device_info_plus, package_info_plus, battery_plus, sensors_plus, vibration, wakelock_plus, in_app_review, qr_code_scanner_plus and gms_check. Plain Dart packages, Hive CE among them, work as they are.
 
 GOOD TO KNOW
 • Your project must use the same Flutter version as RR Pocket; the home screen shows which. flutter run tells you when it differs.
-• Plugin versions must match the ones built in: pocket pin sets them for you.
+• Plugin versions must match the ones built in: pocket pin sets them for you, and tells you when one is a breaking change your project must upgrade to first.
+• If your app fails as it starts, RR Pocket shows the error instead of a frozen screen.
 • A plugin RR Pocket doesn't carry throws MissingPluginException when called; build your app the usual way for that one.
 • Your phone and computer need to be on the same network.
 

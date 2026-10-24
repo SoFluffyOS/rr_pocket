@@ -21,12 +21,16 @@ Works on the Android emulator (Flutter 3.47.7, 2026-10-24):
   `android/` folder launches in 4.7-6.6 s (build, upload, start); hot reload
   0.34-0.50 s, hot restart 1.0-1.1 s; its `print` output shows in
   `flutter run`; quitting returns the phone to RR Pocket's screen.
-- All 26 plugins the app carries answer, with no change to the project's
-  code (`docs/plugins.md`). The arm64 APK is 84.2 MB.
+- All 29 plugins the app carries answer, with no change to the project's
+  code (`docs/plugins.md`). The arm64 APK is 92.5 MB.
 - **The app ships non-debuggable, as Play requires, and the debug engine
   still runs.**
 
-Not yet tried on a real phone over real Wi-Fi.
+On a Pixel 7 (Android 16, 2026-10-24): run from Lumide over real Wi-Fi;
+the probe's 30 checks answer, with real biometrics, both cameras and
+sensors; hot restart 2.1 s, hot reload 0.65 s (over adb, as the probe
+drives it). Pairing found on the network, by QR link and typed; a project
+that throws at startup shows its error instead of freezing.
 
 ## Build
 

@@ -13,8 +13,16 @@ it, which your computer must show to connect. It stays on the phone until
 you clear the app's data or uninstall it.
 
 **Your network.** RR Pocket listens on your local network for the computer
-you paired. That computer sends the app you are developing, and RR Pocket
-runs it. Only pair computers you trust.
+you paired, and announces itself there so your computer can find it. A
+computer that asks to pair gets the pairing code only if you tap Allow on
+the phone. The paired computer sends the app you are developing, and
+RR Pocket runs it. Only pair computers you trust.
+
+**The camera, for pairing.** When you tap Scan QR code, RR Pocket reads the
+QR code your computer shows. On phones with Google Play services, Google's
+code scanner does the scanning and gives RR Pocket only the code's text; it
+needs no camera permission. Elsewhere RR Pocket scans itself and asks for
+the camera first. Nothing is recorded or kept.
 
 **The app you run in it.** Camera, microphone, location, notifications and
 biometrics are available to the app you are developing, and Android asks
