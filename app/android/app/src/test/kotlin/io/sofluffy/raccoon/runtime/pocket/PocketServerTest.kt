@@ -9,7 +9,12 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.Socket
 import java.nio.file.Files
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.GZIPOutputStream
+import io.sofluffy.raccoon.runtime.pocket.PocketServer.PairAnswer
+import kotlin.concurrent.thread
 
 class PocketServerTest {
     // The server's root sits one level down, so a file that escapes it
@@ -18,8 +23,10 @@ class PocketServerTest {
     private val root = File(base, "root").apply { mkdirs() }
     private var ran: File? = null
     private var stopped = false
+    private val prompt = FakePrompt()
     private val port = PocketServer(
         port = 0,
+        code = "CODE",
         accepts = { it == "CODE" },
         root = root,
         hello = { """{"name":"RR Pocket"}""" },
@@ -33,7 +40,34 @@ class PocketServerTest {
                 stopped = true
             }
         },
+        prompt = prompt,
+        pairTimeoutMs = 1000,
     ).start()
+
+    /** Answers with [answer] after [delayMs]; null leaves the question open. */
+    private class FakePrompt : PocketServer.PairPrompt {
+        @Volatile var answer: PairAnswer? = PairAnswer.ALLOWED
+        @Volatile var delayMs = 0L
+        @Volatile var asked: String? = null
+        val asks = AtomicInteger()
+        val withdrawn = AtomicInteger()
+        val waiting = CountDownLatch(1)
+
+        override fun ask(computer: String, answer: (PairAnswer) -> Unit) {
+            asked = computer
+            asks.incrementAndGet()
+            waiting.countDown()
+            val given = this.answer ?: return
+            thread {
+                Thread.sleep(delayMs)
+                answer(given)
+            }
+        }
+
+        override fun withdraw() {
+            withdrawn.incrementAndGet()
+        }
+    }
 
     @After
     fun cleanUp() {
@@ -105,6 +139,115 @@ class PocketServerTest {
                 assertEquals(200, readResponse(socket).status)
             }
         }
+    }
+
+    @Test
+    fun pairsWhenTheUserAllowsWithoutACode() {
+        val response = request("POST", "/pair", code = null, body = """{"computer":"Simon's Mac"}""".toByteArray())
+
+        assertEquals(200, response.status)
+        assertEquals("""{"code":"CODE"}""", response.body)
+        assertEquals("Simon's Mac", prompt.asked)
+    }
+
+    @Test
+    fun aWrongCodeDoesNotStopPairing() {
+        val response = request("POST", "/pair", code = "NOPE", body = """{"computer":"Mac"}""".toByteArray())
+
+        assertEquals(200, response.status)
+    }
+
+    @Test
+    fun refusesWhenTheUserRefuses() {
+        prompt.answer = PairAnswer.REFUSED
+
+        val response = request("POST", "/pair", code = null, body = """{"computer":"Mac"}""".toByteArray())
+
+        assertEquals(403, response.status)
+        assertEquals("""{"error":"pairing refused on the phone"}""", response.body)
+        assertEquals(0, prompt.withdrawn.get())
+    }
+
+    @Test
+    fun givesUpWhenNobodyAnswers() {
+        prompt.answer = null
+
+        val response = request("POST", "/pair", code = null, body = """{"computer":"Mac"}""".toByteArray())
+
+        assertEquals(408, response.status)
+        assertEquals("""{"error":"no answer on the phone"}""", response.body)
+        assertEquals(1, prompt.withdrawn.get())
+    }
+
+    @Test
+    fun aLateAnswerCountsAsNone() {
+        prompt.delayMs = 1500
+
+        assertEquals(408, request("POST", "/pair", code = null, body = """{"computer":"Mac"}""".toByteArray()).status)
+    }
+
+    @Test
+    fun asksForOneComputerAtATime() {
+        prompt.answer = null
+        var first: Response? = null
+        val waiting = thread { first = request("POST", "/pair", code = null, body = """{"computer":"A"}""".toByteArray()) }
+        assertTrue(prompt.waiting.await(2, TimeUnit.SECONDS))
+
+        val second = request("POST", "/pair", code = null, body = """{"computer":"B"}""".toByteArray())
+
+        assertEquals(409, second.status)
+        assertEquals(1, prompt.asks.get())
+        waiting.join()
+        assertEquals(408, first?.status)
+        prompt.answer = PairAnswer.ALLOWED
+        assertEquals(200, request("POST", "/pair", code = null, body = """{"computer":"C"}""".toByteArray()).status)
+    }
+
+    @Test
+    fun saysWhenNobodyCanAnswer() {
+        prompt.answer = PairAnswer.UNAVAILABLE
+
+        val response = request("POST", "/pair", code = null, body = """{"computer":"Mac"}""".toByteArray())
+
+        assertEquals(409, response.status)
+        assertTrue(response.body.contains("open RR Pocket"))
+    }
+
+    @Test
+    fun cutsTheNameTo64Characters() {
+        val name = "M".repeat(63) + "\uD83D\uDE00" + "tail"
+
+        request("POST", "/pair", code = null, body = """{"computer":"$name"}""".toByteArray())
+
+        assertEquals("M".repeat(63) + "\uD83D\uDE00", prompt.asked)
+    }
+
+    @Test
+    fun needsAComputerName() {
+        assertEquals(400, request("POST", "/pair", code = null, body = "{}".toByteArray()).status)
+        assertEquals(400, request("POST", "/pair", code = null, body = "not json".toByteArray()).status)
+        assertEquals(400, request("POST", "/pair", code = null, body = """{"computer":"  "}""".toByteArray()).status)
+        assertEquals(0, prompt.asks.get())
+    }
+
+    @Test
+    fun everyOtherEndpointStillNeedsTheCode() {
+        val endpoints = listOf(
+            "GET" to "/hello",
+            "POST" to "/bundle/begin",
+            "PUT" to "/bundle/kernel_blob.bin",
+            "POST" to "/bundle/commit",
+            "POST" to "/run",
+            "POST" to "/stop",
+            "GET" to "/logs",
+            "GET" to "/pair",
+            "POST" to "/nothing",
+        )
+        for ((method, path) in endpoints) {
+            assertEquals("$method $path", 401, request(method, path, code = null).status)
+        }
+        assertEquals(null, ran)
+        assertFalse(stopped)
     }
 
     private class Response(val status: Int, val body: String)

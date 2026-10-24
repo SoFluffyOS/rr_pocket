@@ -45,11 +45,35 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- RR Pocket's screen has no routes to open from a link, and a
+                 project's routes are its own. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- The QR code a computer shows, opened from the camera app
+             (docs/pairing.md). It hands the link to MainActivity and goes. -->
+        <activity
+            android:name=".PairLinkActivity"
+            android:exported="true"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="rrpocket" android:host="pair"/>
+            </intent-filter>
+        </activity>
+        <!-- Play installs Google's code scanner with the app, so scanning to
+             pair rarely waits for a download. -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="barcode_ui" />
         <!-- flutter_local_notifications: scheduled notifications, kept across
              reboots, and notification actions. -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />

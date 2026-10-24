@@ -1,11 +1,16 @@
 import 'package:flutter/widgets.dart';
 import 'package:rr_pocket/src/pairing.dart';
+import 'package:rr_pocket/src/pairing_flow.dart';
+import 'package:rr_pocket/src/pairing_note_line.dart';
 import 'package:rr_pocket/src/rr_theme.dart';
 import 'package:sofluffy_ui/sofluffy_ui.dart';
 
 /// How a computer pairs with this phone: once, then `flutter run -d pocket`.
+/// Allowing or scanning first; the address and code to type as the fallback.
 class PairingCard extends StatefulWidget {
-  const PairingCard({super.key});
+  const PairingCard({super.key, required this.flow});
+
+  final PairingFlow flow;
 
   @override
   State<PairingCard> createState() => _PairingCardState();
@@ -19,7 +24,10 @@ class _PairingCardState extends State<PairingCard> {
     return FutureBuilder<Pairing?>(
       future: _pairing,
       builder: (context, snapshot) => switch (snapshot.data) {
-        final pairing? => _PairingDetails(pairing),
+        final pairing? => ListenableBuilder(
+          listenable: widget.flow,
+          builder: (context, _) => _PairingDetails(pairing, widget.flow),
+        ),
         null => const SizedBox.shrink(),
       },
     );
@@ -27,9 +35,10 @@ class _PairingCardState extends State<PairingCard> {
 }
 
 class _PairingDetails extends StatelessWidget {
-  const _PairingDetails(this.pairing);
+  const _PairingDetails(this.pairing, this.flow);
 
   final Pairing pairing;
+  final PairingFlow flow;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +70,27 @@ class _PairingDetails extends StatelessWidget {
             'Pair your computer',
             style: theme.typography.base1.copyWith(fontWeight: FontWeight.w800),
           ),
-          Spacing.v8,
+          Spacing.v4,
+          Text(
+            'Allow it here when your computer asks, or scan the QR code '
+            'it shows.',
+            style: theme.typography.base2,
+          ),
+          Spacing.v16,
+          Button(
+            variant: ButtonVariant.primary,
+            label: 'Scan QR code',
+            tooltip: 'Scan the QR code your computer shows',
+            enable: !flow.busy,
+            onPressed: flow.scan,
+          ),
+          if (flow.note case final note?) ...[
+            Spacing.v12,
+            PairingNoteLine(note),
+          ],
+          Spacing.v24,
+          Text('Or type it on your computer', style: labelStyle),
+          Spacing.v4,
           row('Address', pairing.address ?? 'no Wi-Fi'),
           row('Code', pairing.displayCode),
           Spacing.v12,

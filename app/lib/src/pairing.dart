@@ -2,20 +2,44 @@ import 'package:flutter/services.dart';
 
 /// Where a computer reaches this phone, and the code it must show.
 class Pairing {
-  const Pairing({required this.address, required this.code});
+  const Pairing({
+    required this.address,
+    required this.code,
+    this.port = 8100,
+    this.name = 'Android phone',
+  });
 
   /// The phone's LAN address, null when it has none (no Wi-Fi).
   final String? address;
   final String code;
 
-  static const _channel = MethodChannel('rr_pocket/pairing');
+  /// The control server's port.
+  final int port;
+
+  /// The phone's model, such as `Pixel 7`.
+  final String name;
+
+  /// RR Pocket's own channel to its Kotlin side: pairing details, the code
+  /// scanner, pairing links, and the computer asking to pair.
+  static const channel = MethodChannel('rr_pocket/pairing');
 
   /// Null where nothing answers (tests, a host without RR Pocket's activity).
   static Future<Pairing?> load() async {
     try {
-      final info = await _channel.invokeMapMethod<String, Object?>('info');
+      final info = await channel.invokeMapMethod<String, Object?>('info');
       if (info case {'code': final String code}) {
-        return Pairing(address: info['address'] as String?, code: code);
+        return Pairing(
+          address: info['address'] as String?,
+          code: code,
+          port: switch (info['port']) {
+            final int port => port,
+            _ => 8100,
+          },
+          name: switch (info['name']) {
+            final String name when name.isNotEmpty => name,
+            _ => 'Android phone',
+          },
+        );
       }
     } on MissingPluginException {
       return null;

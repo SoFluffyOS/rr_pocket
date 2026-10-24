@@ -13,9 +13,15 @@ class RrPocketApp extends StatelessWidget {
       title: 'RR Pocket',
       color: RrColors.slate,
       debugShowCheckedModeBanner: false,
-      builder: (context, _) => FluffyTheme(
+      // A navigator for the Allow dialog and the fallback scanner.
+      home: const HomePage(),
+      pageRouteBuilder: <T>(settings, builder) => PageRouteBuilder<T>(
+        settings: settings,
+        pageBuilder: (context, _, _) => builder(context),
+      ),
+      builder: (context, navigator) => FluffyTheme(
         data: rrTheme(MediaQuery.platformBrightnessOf(context)),
-        child: const HomePage(),
+        child: navigator ?? const SizedBox.shrink(),
       ),
     );
   }

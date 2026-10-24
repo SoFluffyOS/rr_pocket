@@ -29,6 +29,7 @@ abstract final class BuildInfo {
     'package_info_plus',
     'path_provider',
     'permission_handler',
+    'qr_code_scanner_plus',
     'record',
     'sensors_plus',
     'share_plus',

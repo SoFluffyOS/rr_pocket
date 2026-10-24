@@ -2,6 +2,7 @@ package io.sofluffy.raccoon.runtime.pocket
 
 import android.app.Activity
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import io.flutter.embedding.engine.FlutterJNI
 import org.json.JSONObject
@@ -22,6 +23,10 @@ object Pocket {
 
     private var pairing: Pairing? = null
     private var activity = WeakReference<Activity>(null)
+    private var link: String? = null
+
+    /** Where /pair asks the user. */
+    val prompt = ScreenPrompt()
 
     @Volatile
     private var firstVmServiceUri: String? = null
@@ -45,6 +50,7 @@ object Pocket {
         VmRelay(VM_RELAY_PORT, ::vmServiceUri).start()
         PocketServer(
             port = CONTROL_PORT,
+            code = pairing.code,
             accepts = pairing::accepts,
             root = File(context.filesDir, "pocket"),
             hello = { hello(context) },
@@ -55,12 +61,26 @@ object Pocket {
                     activity()?.let { it.runOnUiThread { it.recreate() } }
                 }
             },
+            prompt = prompt,
         ).start()
+        Advertiser(context).start(CONTROL_PORT, Build.MODEL, context.getString(R.string.rr_flutter_version))
         Log.i("RRPocket", "pair with: ${pairing.address() ?: "(offline)"} ${pairing.code}")
         return pairing
     }
 
     private fun activity() = activity.get()
+
+    /** An rrpocket://pair link for RR Pocket's own screen to take. */
+    @Synchronized
+    fun keepLink(link: String) {
+        this.link = link
+    }
+
+    @Synchronized
+    fun takeLink(): String? = link.also { link = null }
+
+    @Synchronized
+    fun hasLink() = link != null
 
     private fun hello(context: Context) = JSONObject()
         .put("name", "RR Pocket")
@@ -81,8 +101,19 @@ object Pocket {
      * Restarts the running engine into [bundle], the way hot restart does:
      * the engine's `_flutter.runInView` takes a kernel and an assets folder
      * from the filesystem, which a fresh launch on Android does not.
+     * From the first call on, RR Pocket's own screen may be gone.
      */
     private fun runInView(bundle: File): String {
+        prompt.projectRunning = true
+        return try {
+            restartInto(bundle)
+        } catch (e: Exception) {
+            prompt.projectRunning = false
+            throw e
+        }
+    }
+
+    private fun restartInto(bundle: File): String {
         val vm = vmServiceUri() ?: error("the engine has no VM service yet")
         val base = vm.trimEnd('/')
         val views = JSONObject(get("$base/_flutter.listViews"))

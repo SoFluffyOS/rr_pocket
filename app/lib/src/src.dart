@@ -1,8 +1,15 @@
+export 'allow_prompt.dart';
 export 'build_card.dart';
 export 'build_info.dart';
+export 'code_scan.dart';
 export 'home_page.dart';
+export 'pair_link.dart';
+export 'pair_sender.dart';
 export 'pairing.dart';
 export 'pairing_card.dart';
+export 'pairing_flow.dart';
+export 'pairing_note_line.dart';
+export 'qr_scanner_page.dart';
 export 'rr_logo.dart';
 export 'rr_theme.dart';
 export 'waiting_card.dart';

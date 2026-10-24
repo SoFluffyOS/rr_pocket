@@ -57,5 +57,10 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Scan to pair: Google's scanner runs in Play services, without the
+    // camera permission; qr_code_scanner_plus is the fallback without it.
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
     testImplementation("junit:junit:4.13.2")
+    // Android's org.json is a stub in unit tests; /pair parses JSON.
+    testImplementation("org.json:json:20250517")
 }

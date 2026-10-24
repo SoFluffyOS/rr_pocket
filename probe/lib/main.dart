@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import 'package:record/record.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -32,6 +33,10 @@ import 'package:webview_flutter/webview_flutter.dart';
 void main() {
   runApp(const MaterialApp(home: Probe()));
 }
+
+/// The probe's QR view, created on screen: qr_code_scanner_plus has no
+/// method channel of its own, only a platform view. It asks for the camera.
+final qrView = Completer<QRViewController>();
 
 /// Calls each bundled plugin once. MISSING means its native side is not in
 /// RR Pocket; anything else means the platform answered.
@@ -132,6 +137,11 @@ final checks = <String, Future<Object?> Function()>{
     await recorder.dispose();
     return 'permission $allowed';
   },
+  'qr_code_scanner_plus': () async {
+    final controller = await qrView.future.timeout(const Duration(seconds: 10));
+    final features = await controller.getSystemFeatures();
+    return 'back camera ${features.hasBackCamera}';
+  },
   'share_plus': () async {
     // Opens the share sheet; answering at all is the check.
     unawaited(SharePlus.instance.share(ShareParams(text: 'probe')));
@@ -149,6 +159,7 @@ class Probe extends StatefulWidget {
 
 class _ProbeState extends State<Probe> {
   final results = <String, String>{};
+  final qrKey = GlobalKey(debugLabel: 'qr');
   late final web = WebViewController()
     ..loadHtmlString('<h1 style="font-size:64px">webview in RR Pocket</h1>');
 
@@ -181,6 +192,10 @@ class _ProbeState extends State<Probe> {
         child: Column(
           children: [
             SizedBox(height: 120, child: WebViewWidget(controller: web)),
+            SizedBox(
+              height: 80,
+              child: QRView(key: qrKey, onQRViewCreated: qrView.complete),
+            ),
             Expanded(
               child: ListView(
                 children: [

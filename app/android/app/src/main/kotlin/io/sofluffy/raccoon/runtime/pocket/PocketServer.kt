@@ -8,8 +8,13 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.GZIPInputStream
 import kotlin.concurrent.thread
+import org.json.JSONException
+import org.json.JSONObject
 
 /**
  * What a paired computer drives, over plain HTTP on the LAN:
@@ -21,15 +26,21 @@ import kotlin.concurrent.thread
  *  POST /run              restart the engine into the bundle
  *  POST /stop             back to RR Pocket's own screen
  *  GET  /logs             the running app's `print` output, as it comes
+ *  POST /pair             ask the user to give a computer the code
  *
- * Every request carries `Authorization: Bearer <pairing code>`.
+ * Every request carries `Authorization: Bearer <pairing code>`, except
+ * `/pair`: a computer that has no code yet asks for it there, and gets it
+ * only when the user taps Allow on the phone (docs/pairing.md).
  */
 class PocketServer(
     private val port: Int,
+    private val code: String,
     private val accepts: (String?) -> Boolean,
     private val root: File,
     private val hello: () -> String,
     private val actions: Actions,
+    private val prompt: PairPrompt,
+    private val pairTimeoutMs: Long = 60_000L,
 ) {
     interface Actions {
         /** Starts [bundle]; returns the VM service's path, `/<auth>/`. */
@@ -37,6 +48,23 @@ class PocketServer(
 
         fun stop()
     }
+
+    /** RR Pocket's own screen asking "Pair with <computer>?". */
+    interface PairPrompt {
+        /**
+         * Shows the question and calls [answer] once, from any thread:
+         * right away with [PairAnswer.UNAVAILABLE] when nobody could answer.
+         */
+        fun ask(computer: String, answer: (PairAnswer) -> Unit)
+
+        /** Takes the question down: nobody answered in time. */
+        fun withdraw()
+    }
+
+    enum class PairAnswer { ALLOWED, REFUSED, UNAVAILABLE }
+
+    /** Set while a /pair request waits for the user; one at a time. */
+    private val asking = AtomicBoolean(false)
 
     private val staging = File(root, "staging")
     private val bundle = File(root, "bundle")
@@ -112,6 +140,7 @@ class PocketServer(
     }
 
     private fun respond(request: Request): Response {
+        if (request.method == "POST" && request.path == "/pair") return pair(request)
         if (!authorized(request)) {
             return Response(401, error("wrong pairing code"))
         }
@@ -145,6 +174,48 @@ class PocketServer(
             }
             else -> Response(404, error("no ${request.method} $path"))
         }
+    }
+
+    /** Holds the request until the user answers, or [pairTimeoutMs] passes. */
+    private fun pair(request: Request): Response {
+        val computer = computerName(request)
+            ?: return Response(400, error("send {\"computer\": \"<this computer's name>\"}"))
+        if (!asking.compareAndSet(false, true)) {
+            return Response(409, error("another computer is waiting for an answer on the phone; try again in a minute"))
+        }
+        try {
+            val answers = ArrayBlockingQueue<PairAnswer>(1)
+            prompt.ask(computer) { answers.offer(it) }
+            return when (answers.poll(pairTimeoutMs, TimeUnit.MILLISECONDS)) {
+                PairAnswer.ALLOWED -> Response(200, """{"code":${quote(code)}}""")
+                PairAnswer.REFUSED -> Response(403, error("pairing refused on the phone"))
+                PairAnswer.UNAVAILABLE -> Response(
+                    409,
+                    error("RR Pocket's screen is not showing on the phone (a project may be running); open RR Pocket, then try again"),
+                )
+                null -> {
+                    prompt.withdraw()
+                    Response(408, error("no answer on the phone"))
+                }
+            }
+        } finally {
+            asking.set(false)
+        }
+    }
+
+    /** The `computer` field, trimmed and cut to [MAX_NAME] characters. */
+    private fun computerName(request: Request): String? {
+        val length = request.header("content-length")?.toLongOrNull() ?: 0L
+        // Anyone on the network may call /pair, so it reads no large bodies.
+        if (length > MAX_PAIR_BODY) return null
+        val name = try {
+            JSONObject(request.body.readBytes().decodeToString()).optString("computer").trim()
+        } catch (_: JSONException) {
+            return null
+        }
+        if (name.isEmpty()) return null
+        if (name.codePointCount(0, name.length) <= MAX_NAME) return name
+        return name.substring(0, name.offsetByCodePoints(0, MAX_NAME))
     }
 
     private fun receive(request: Request): Response {
@@ -233,7 +304,9 @@ class PocketServer(
                 200 -> "OK"
                 400 -> "Bad Request"
                 401 -> "Unauthorized"
+                403 -> "Forbidden"
                 404 -> "Not Found"
+                408 -> "Request Timeout"
                 409 -> "Conflict"
                 else -> "Error"
             }
@@ -247,6 +320,9 @@ class PocketServer(
     }
 
     companion object {
+        const val MAX_NAME = 64
+        private const val MAX_PAIR_BODY = 4096L
+
         fun quote(text: String) =
             "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\""
     }

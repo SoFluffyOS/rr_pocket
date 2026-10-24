@@ -1,15 +1,34 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:rr_pocket/src/allow_prompt.dart';
 import 'package:rr_pocket/src/build_card.dart';
 import 'package:rr_pocket/src/pairing_card.dart';
+import 'package:rr_pocket/src/pairing_flow.dart';
+import 'package:rr_pocket/src/qr_scanner_page.dart';
 import 'package:rr_pocket/src/rr_logo.dart';
 import 'package:rr_pocket/src/rr_theme.dart';
 import 'package:rr_pocket/src/waiting_card.dart';
 import 'package:sofluffy_ui/sofluffy_ui.dart';
 
 /// What the phone shows until a project restarts into this engine.
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  late final _flow = PairingFlow(
+    question: AllowPrompt(() => context),
+    scanInApp: () => QrScannerPage.open(context),
+  )..start();
+
+  @override
+  void dispose() {
+    _flow.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +71,7 @@ class HomePage extends StatelessWidget {
                   Spacing.v32,
                   const WaitingCard(),
                   Spacing.v16,
-                  const PairingCard(),
+                  PairingCard(flow: _flow),
                   Spacing.v16,
                   const BuildCard(),
                   Spacing.v24,
