@@ -110,5 +110,3 @@ build cache; the network is `adb forward` of :8100 and :8101 only.
 
 - A real phone on real Wi-Fi: upload time for the 81 MB kernel (gzip level
   1 on the way), and whether phones' Wi-Fi isolation blocks :8100.
-- Finding the phone without typing its address (mDNS, as Lumide's sharing
-  does).

@@ -79,7 +79,7 @@ Break one of these and a user's project stops running, often silently.
 
 ## Dart
 
-- **Dart 3.13 features** in `app/` (`desktop/` stays on 3.0, below):
+- **Dart 3.13 features** in `app/` (`desktop/` stays on 3.4, below):
   records, patterns, `switch` expressions, dot shorthands, collection
   `if`/`for`. Use descriptive names in patterns (`final theirs?`, not
   `final t?`).
@@ -119,8 +119,12 @@ Break one of these and a user's project stops running, often silently.
 `desktop/` follows Lumide's plugin workflow
 (`../plugin-creation-workflow.md` in the Lumide workspace).
 
-- **SDK `>=3.0.0`**, so users on older Flutter can install it: no dot
-  shorthands or null-aware elements there (`if (x case final v?) v`).
+- **SDK `>=3.4.0`** (package:qr's floor), so users on older Flutter can
+  install it: no dot shorthands or null-aware elements there
+  (`if (x case final v?) v`).
+- **Pairing follows `docs/pairing.md`** on both sides: found on the network,
+  then a QR code, then typed, each the fallback for the one before. A
+  protocol change updates the doc, `desktop/` and `app/` together.
 - **`lumide_api` pinned exactly** to the published version Lumide ships
   with; state the Lumide version in `desktop/README.md` when it changes.
 - **Stdout belongs to Lumide** in the plugin: it carries JSON-RPC. Log with

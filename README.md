@@ -50,12 +50,16 @@ is on pub.dev:
 dart pub global activate --source git https://github.com/simonpham/rr_pocket.git --git-path desktop
 ```
 
-On the phone, open RR Pocket. It shows its address and a pairing code. On
-the computer, once:
+Open RR Pocket on the phone, then on the computer, once:
 
 ```sh
-pocket pair <address> <code>
+pocket pair
 ```
+
+It finds the phone on the network and the phone asks you to allow it. Where
+the network hides the phone, it shows a QR code to scan with RR Pocket
+instead; `pocket pair <address> <code>`, with what the phone shows, always
+works. How each works: `docs/pairing.md`.
 
 That registers the `pocket` device with your Flutter SDK. Then, from any
 project:
