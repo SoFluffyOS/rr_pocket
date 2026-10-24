@@ -30,11 +30,15 @@ flutter run -d pocket
   on :8101 makes it reachable; HTTP, WebSockets and DDS all go through.
 - **`flutter run` is stock.** `pocket pair` registers a custom device
   whose commands are `pocket ping | install | run | uninstall`, run by
-  the `dart` that paired. Installed with `dart pub global activate`, Flutter
-  calls it as `dart pub global run rr_pocket:pocket` (0.36 s a call), not
-  by the snapshot pub runs, whose name changes with each Dart version. `run` prints "The Dart VM service is
-  listening on http://<phone>:8101/<auth>/", which is how the tool finds it,
-  then the app's log lines, which is how the tool shows them.
+  Flutter's `dart` as `dart --packages=<config> package:rr_pocket/pocket.dart`
+  (0.29 s a call), with the package config of the copy that paired: an
+  installed package's stays at the same path across upgrades. Not the
+  snapshot pub runs, whose name changes with each Dart version, and not
+  `dart pub global run`, which runs the tool in a child process that never
+  hears Flutter's SIGTERM, so quitting left the app open. `run` prints "The
+  Dart VM service is listening on http://<phone>:8101/<auth>/", which is how
+  the tool finds it, then the app's log lines, which is how the tool shows
+  them.
 - **Versions.** `/hello` reports the Flutter version and engine revision
   RR Pocket was built with (stamped by `tool/build_apk.sh` through Gradle
   `resValue`s); `install` compares the engine revision with the SDK's in

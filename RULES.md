@@ -58,9 +58,12 @@ Break one of these and a user's project stops running, often silently.
 - **The `pocket` command needs only the Dart SDK.** No adb, no Android SDK,
   and it must work on macOS, Linux and Windows (`Platform.pathSeparator`,
   `flutter.bat`). Flutter calls it on every run, so keep its startup light.
-- **Flutter calls an installed `pocket` through `dart pub global run`.** The
-  snapshot pub runs is named after the Dart version and replaced on upgrade;
-  never save its path in Flutter's settings (`helperCommand`).
+- **Flutter runs `pocket` itself, in one process.** The device's commands
+  are `dart --packages=<config> package:rr_pocket/pocket.dart`
+  (`helperCommand`). Never `dart pub global run`: its child process misses
+  Flutter's SIGTERM, so a stopped run stays open on the phone
+  (`test/stop_test.dart`). Never a snapshot path: it is named after the Dart
+  version and replaced on upgrade.
 - **The package is private until the app is live.** Don't `dart pub
   publish` or make the repo public without Simon's go-ahead; a published
   version can't be deleted.
