@@ -53,7 +53,7 @@ const Footer = () => (
       ))}
     </div>
     <div className="relative mx-auto mt-6 flex max-w-6xl justify-center px-4">
-      <RaccoonMark className="-mb-16 size-56 text-[var(--text)] opacity-[0.16] dark:opacity-[0.1]" />
+      <RaccoonMark className="-mb-10 size-48 text-[var(--text)] opacity-[0.16] dark:opacity-[0.1]" />
     </div>
     <div className="relative bg-[var(--app-bg)]">
       <div className="tail-bands rounded-none" />
