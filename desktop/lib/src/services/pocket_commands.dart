@@ -191,11 +191,16 @@ class PocketCommands {
   }
 
   Future<void> _pairFound(FoundPhone found) async {
-    final code = await context.window.withProgress(
+    final given = await context.window.withProgress(
       title: 'Tap Allow on ${found.name}',
       task: (_) => requestPairing(found.host, found.port, _computer),
     );
-    final phone = Phone(found.host, found.port, code);
+    final phone = Phone(
+      found.host,
+      found.port,
+      given.code,
+      fingerprint: given.fingerprint,
+    );
     await _finish(phone, () => phone.hello().timeout(helloTimeout));
   }
 

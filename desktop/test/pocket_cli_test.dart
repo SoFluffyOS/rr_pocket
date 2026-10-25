@@ -17,7 +17,9 @@ void main() {
     temp = await Directory.systemTemp.createTemp('rr_pocket_cli_test');
     phone = await FakePhone.start(plugins: {'camera': '0.12.1'});
     config = PocketConfig('${temp.path}/config');
-    await Phone('127.0.0.1', phone.port, phone.code).save(config);
+    await Phone('127.0.0.1', phone.port, phone.code,
+            fingerprint: phone.fingerprint)
+        .save(config);
     cli = PocketCli(config: config, environment: const {});
 
     // A project and the bundle Flutter builds for it.
@@ -132,6 +134,7 @@ void main() {
 
     test('shows a QR code when no phone is found, and pairs who scans it',
         () async {
+      phone.offeredToken = 'the-token';
       final paired = pairing(['pair']);
       // The phone, once it scanned the code.
       HttpClientResponse? response;
@@ -140,11 +143,11 @@ void main() {
           final client = HttpClient();
           final request = await client.post('127.0.0.1', pairPort, '/pair');
           request.write(jsonEncode({
-            'token': 'the-token',
             'name': 'Pixel 7',
             'address': '127.0.0.1',
             'port': phone.port,
-            'code': phone.code,
+            'fingerprint': phone.fingerprint,
+            'proof': pairingProof('the-token', phone.fingerprint),
           }));
           response = await request.close();
           await response.drain<void>();
@@ -199,7 +202,9 @@ void main() {
       isarPhone = await FakePhone.start(
         plugins: {'isar_community_flutter_libs': '3.4.1'},
       );
-      await Phone('127.0.0.1', isarPhone.port, isarPhone.code).save(config);
+      await Phone('127.0.0.1', isarPhone.port, isarPhone.code,
+              fingerprint: isarPhone.fingerprint)
+          .save(config);
       workspaceCli = PocketCli(config: config, environment: const {});
       root = Directory('${temp.path}/converter')..createSync();
       File('${root.path}/pubspec.yaml')
@@ -245,8 +250,9 @@ void main() {
     });
 
     test('pin writes the overrides at the root, the family included', () async {
-      final hello =
-          await Phone('127.0.0.1', isarPhone.port, isarPhone.code).hello();
+      final hello = await Phone('127.0.0.1', isarPhone.port, isarPhone.code,
+              fingerprint: isarPhone.fingerprint)
+          .hello();
       final written = await writePins(hello, app);
 
       expect(written.file.path, '${root.path}/pubspec_overrides.yaml');
@@ -276,7 +282,8 @@ void main() {
       storagePhone = await FakePhone.start(
         plugins: {'flutter_secure_storage': '11.2.0', 'share_plus': '13.3.1'},
       );
-      await Phone('127.0.0.1', storagePhone.port, storagePhone.code)
+      await Phone('127.0.0.1', storagePhone.port, storagePhone.code,
+              fingerprint: storagePhone.fingerprint)
           .save(config);
       storageCli = PocketCli(config: config, environment: const {});
       File('${temp.path}/pubspec.lock').writeAsStringSync(
@@ -300,9 +307,10 @@ void main() {
     });
 
     test('pin leaves the breaking one, --all pins it too', () async {
-      final hello =
-          await Phone('127.0.0.1', storagePhone.port, storagePhone.code)
-              .hello();
+      final hello = await Phone(
+              '127.0.0.1', storagePhone.port, storagePhone.code,
+              fingerprint: storagePhone.fingerprint)
+          .hello();
 
       final safe = await writePins(hello, temp);
       expect(safe.pins, {'share_plus': '13.3.1'});

@@ -34,6 +34,12 @@ void main() {
 
   tearDown(() => computer.close(force: true));
 
+  Future<PairOffer?> offer(String token) async =>
+      (fingerprint: 'ab12', proof: 'cd34');
+
+  PairSender sender({Duration answerTimeout = const Duration(seconds: 20)}) =>
+      PairSender(answerTimeout: answerTimeout, offer: offer);
+
   PairLink link({List<String> hosts = const ['127.0.0.1']}) => PairLink(
     hosts: hosts,
     port: computer.port,
@@ -41,8 +47,14 @@ void main() {
     name: "Simon's Mac",
   );
 
-  test("posts the phone's name, address, port and code", () async {
-    final result = await const PairSender().send(link(), phone);
+  test("posts where the phone is and its proof, never its code", () async {
+    final offered = <String>[];
+    final result = await PairSender(
+      offer: (token) async {
+        offered.add(token);
+        return (fingerprint: 'ab12', proof: 'cd34');
+      },
+    ).send(link(), phone);
 
     expect(
       result,
@@ -53,18 +65,27 @@ void main() {
         'length': isPositive,
         'method': 'POST',
         'path': '/pair',
-        'token': 'token-1',
         'name': 'Pixel 7',
         'address': '192.168.1.20',
         'port': 8100,
-        'code': 'H79GN4XS',
+        'fingerprint': 'ab12',
+        'proof': 'cd34',
       },
     ]);
+    expect(offered, ['token-1']);
+  });
+
+  test('sends nothing when the phone could not keep the token', () async {
+    final result = await PairSender(offer: (_) async => null)
+        .send(link(), phone);
+
+    expect(result, isA<PairFailed>());
+    expect(posts, isEmpty);
   });
 
   test('tries the next address when one does not answer', () async {
     // Nothing listens on IPv6 loopback at this port.
-    final result = await const PairSender().send(
+    final result = await sender().send(
       link(hosts: ['::1', '127.0.0.1']),
       phone,
     );
@@ -89,9 +110,8 @@ void main() {
         }
       });
 
-      final result = await const PairSender(
-        answerTimeout: Duration(milliseconds: 300),
-      ).send(link(hosts: ['::1', '127.0.0.1']), phone);
+      final result = await sender(answerTimeout: Duration(milliseconds: 300))
+          .send(link(hosts: ['::1', '127.0.0.1']), phone);
 
       expect(result, isA<Paired>());
     },
@@ -102,7 +122,7 @@ void main() {
       'error': 'this code is not the one showing; scan it again',
     });
 
-    final result = await const PairSender().send(link(), phone);
+    final result = await sender().send(link(), phone);
 
     expect(
       result,
@@ -119,7 +139,7 @@ void main() {
       'error': 'the computer could not reach the phone at 192.168.1.20:8100',
     });
 
-    final result = await const PairSender().send(
+    final result = await sender().send(
       link(hosts: ['127.0.0.1', '::1']),
       phone,
     );
@@ -139,7 +159,7 @@ void main() {
     final closed = link();
     await computer.close(force: true);
 
-    final result = await const PairSender().send(closed, phone);
+    final result = await sender().send(closed, phone);
 
     expect(
       result,
@@ -152,7 +172,7 @@ void main() {
   });
 
   test('sends nothing without a Wi-Fi address', () async {
-    final result = await const PairSender().send(
+    final result = await sender().send(
       link(),
       const Pairing(address: null, code: 'H79GN4XS'),
     );

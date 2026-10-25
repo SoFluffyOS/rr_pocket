@@ -54,7 +54,13 @@ Break one of these and a user's project stops running, often silently.
   `docs/plugins.md`.
 - **The pairing code gates every request.** Each control-server endpoint
   checks it (`CodeGate`); a new endpoint does too. Never write the code to a
-  file or log on the computer beyond `device.json`.
+  file or log on the computer beyond `device.json`, which stays 0600.
+- **Nothing secret crosses the network in the clear.** The phone's servers
+  speak only TLS (`TlsIdentity`), and the computer trusts only the
+  certificate it pinned when it paired: never a certificate authority, never
+  `badCertificateCallback` returning true without the fingerprint check
+  (`pinned_tls.dart`). The one plain post, the phone's answer to a QR code,
+  carries no code (docs/pairing.md).
 - **The `pocket` command needs only the Dart SDK.** No adb, no Android SDK,
   and it must work on macOS, Linux and Windows (`Platform.pathSeparator`,
   `flutter.bat`). Flutter calls it on every run, so keep its startup light.

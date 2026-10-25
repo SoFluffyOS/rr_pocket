@@ -64,7 +64,9 @@ pocket pair
 It finds the phone on the network and the phone asks you to allow it. Where
 the network hides the phone, it shows a QR code to scan with RR Pocket
 instead; `pocket pair <address> <code>`, with what the phone shows, always
-works. How each works: `docs/pairing.md`.
+works. How each works: `docs/pairing.md`. Everything between the computer
+and the phone is TLS, pinned to the phone's certificate when you pair
+(`docs/wifi.md`, Security).
 
 That registers the `pocket` device with your Flutter SDK. Then, from any
 project:

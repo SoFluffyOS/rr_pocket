@@ -13,9 +13,13 @@ flutter run -d pocket
                                               VM service, over HTTP
     prints the VM service's address  ◀───── {"vmPath": "/<auth>/"}
     streams GET /logs ◀───────────────────   tails its own log, tag flutter
-  └ DDS, hot reload, devfs ─────────────▶ VM relay :8101 (Kotlin) ─▶ 127.0.0.1
+  └ DDS, hot reload, devfs
+      ─▶ 127.0.0.1 tunnel (pocket run) ──▶ VM relay :8101 (Kotlin) ─▶ 127.0.0.1
   └ q: SIGTERM, POST /stop ─────────────▶   recreates the activity
 ```
+
+Everything between the computer and the phone is TLS, pinned to the
+phone's own certificate (Security, below).
 
 - **Launching is a hot restart.** A fresh engine launch on Android reads
   assets only from inside the APK, but the engine's `_flutter.runInView`,
@@ -26,8 +30,11 @@ flutter run -d pocket
 - **The engine's snapshots stay on the phone.** The bundle carries
   `isolate_snapshot_data` and `vm_snapshot_data` for the engine it was built
   for; `runInView` uses the running engine's, so `install` skips them.
-- **The VM service listens on 127.0.0.1 only.** A byte-for-byte TCP relay
-  on :8101 makes it reachable; HTTP, WebSockets and DDS all go through.
+- **The VM service listens on 127.0.0.1 only.** A byte-for-byte relay on
+  :8101 makes it reachable inside TLS; HTTP, WebSockets and DDS all go
+  through. Flutter and DDS expect a plain VM service, so `pocket run`
+  listens on the computer's 127.0.0.1 and carries each connection to the
+  relay inside TLS (`VmTunnel`).
 - **A new run or a stop ends every relayed connection.** The VM lives as
   long as RR Pocket's process, across sessions. A computer's DDS that
   outlives its `flutter run` (killed, or the laptop asleep) keeps the VM to
@@ -43,9 +50,9 @@ flutter run -d pocket
   snapshot pub runs, whose name changes with each Dart version, and not
   `dart pub global run`, which runs the tool in a child process that never
   hears Flutter's SIGTERM, so quitting left the app open. `run` prints "The
-  Dart VM service is listening on http://<phone>:8101/<auth>/", which is how
-  the tool finds it, then the app's log lines, which is how the tool shows
-  them.
+  Dart VM service is listening on http://127.0.0.1:<tunnel>/<auth>/", which
+  is how the tool finds it, then the app's log lines, which is how the tool
+  shows them.
 - **Versions.** `/hello` reports the Flutter version and engine revision
   RR Pocket was built with (stamped by `tool/build_apk.sh` through Gradle
   `resValue`s); `install` compares the engine revision with the SDK's in
@@ -69,15 +76,32 @@ marker and `run` refuses with the same message.
 
 Anyone who can drive the control server can run code in RR Pocket, so:
 
-- An 8-character code from a 32-letter alphabet (40 bits) guards every
-  request, compared in constant time; ten wrong codes lock it for five
-  minutes. It is made once and kept until the app's data is cleared.
-- The relay carries the VM service, whose URL holds its own random auth
-  code. The computer learns it only from `/run`, which needs the pairing
-  code.
-- Plain HTTP on the LAN: the code crosses the network in the clear. Fine
-  for a home or office network with a dev tool; TLS with a pinned key from
-  the pairing is the next step if it ships wider.
+- **TLS, pinned.** RR Pocket makes a P-256 key and a self-signed
+  certificate once (`TlsIdentity`, kept with the app's data like the code)
+  and serves :8100 and :8101 only over TLS. The computer pins the
+  certificate's SHA-256 when it pairs (`device.json`, `fingerprint`) and
+  trusts nothing else: no certificate authorities, no other certificate.
+  So nobody on the Wi-Fi can read the code, the project or the VM
+  service's address, change the project on the way, or pass for the phone.
+  How the computer learns the fingerprint safely is in
+  [pairing.md](pairing.md).
+- **The code.** 8 characters from a 32-letter alphabet (40 bits) guard every
+  request, compared in constant time. Ten wrong codes from one sender (an
+  IPv4 address, or an IPv6 /64) lock that sender out for five minutes;
+  other senders, the paired computer among them, keep working. Made once
+  and kept until the app's data is cleared.
+- **The VM service's own auth code** in its URL guards the relay. The
+  computer learns it only from `/run`, which needs the pairing code.
+- **Connections.** Each port holds at most 32 connections, 16 per sender;
+  the control server ends one that sends nothing for 30 s, the relay one
+  that doesn't finish its handshake in 10 s. A failure ends only its own
+  connection.
+- **On the computer**, `device.json` is readable by its owner only (0600).
+
+Checked on a Pixel 7, 2026-10-25: plain HTTP to either port gets an empty
+reply; a computer pinned to another certificate refuses the phone before
+sending the code; a full `flutter run -d pocket` of the probe through the
+tunnel started in 11.3 s, hot reload 0.43 s, hot restart 2.49 s.
 
 ## What it took
 
@@ -95,8 +119,10 @@ Anyone who can drive the control server can run code in RR Pocket, so:
   to the process's log under the `flutter` tag, and an app may read its own
   log: `/logs` runs `logcat --pid=<own pid> flutter:V *:S` and streams it.
 - **Cleartext.** Android blocks plain HTTP, even to 127.0.0.1, unless the
-  app allows it; RR Pocket does (`usesCleartextTraffic`), which also lets
-  projects call their dev servers over HTTP.
+  app allows it; RR Pocket does (`usesCleartextTraffic`): projects call
+  their dev servers over HTTP, and RR Pocket calls its own VM service on
+  127.0.0.1 and posts a QR pairing to the computer that way. Its own
+  servers don't speak it.
 - **A custom device is `linux-x64` or `linux-arm64` to the tool.** The
   bundle it builds is platform-neutral debug kernel, so `linux-arm64` is
   only a label here; the plugin registrant branches at run time and picks

@@ -16,7 +16,9 @@ you clear the app's data or uninstall it.
 you paired, and announces itself there so your computer can find it. A
 computer that asks to pair gets the pairing code only if you tap Allow on
 the phone. The paired computer sends the app you are developing, and
-RR Pocket runs it. Only pair computers you trust.
+RR Pocket runs it. Everything between them is encrypted (TLS), and your
+computer talks only to the phone it paired with. Only pair computers you
+trust.
 
 **The camera, for pairing.** When you tap Scan QR code, RR Pocket reads the
 QR code your computer shows. On phones with Google Play services, Google's

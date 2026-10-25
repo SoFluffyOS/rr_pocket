@@ -24,6 +24,7 @@ class PocketServerTest {
     private var ran: File? = null
     private var stopped = false
     private val prompt = FakePrompt()
+    private val offers = PairOffers(lifetimeMs = 1000, now = { clock })
     @Volatile private var clock = 0L
     private val port = startServer()
 
@@ -47,6 +48,8 @@ class PocketServerTest {
             }
         },
         prompt = prompt,
+        secure = { it },
+        offers = offers,
         pairTimeoutMs = 1000,
         now = { clock },
         readTimeoutMs = readTimeoutMs,
@@ -286,6 +289,29 @@ class PocketServerTest {
         } finally {
             held.forEach { it.close() }
         }
+    }
+
+    @Test
+    fun givesTheCodeForAnAllowedQrCodeOnceWithoutAsking() {
+        offers.offer("the-token", "fingerprint")
+
+        val first = request("POST", "/pair", code = null, body = """{"token":"the-token"}""".toByteArray())
+        val again = request("POST", "/pair", code = null, body = """{"token":"the-token"}""".toByteArray())
+
+        assertEquals(200, first.status)
+        assertEquals("""{"code":"CODE"}""", first.body)
+        assertEquals(403, again.status)
+        assertEquals(0, prompt.asks.get())
+    }
+
+    @Test
+    fun refusesATokenNotOffered() {
+        offers.offer("the-token", "fingerprint")
+
+        assertEquals(403, request("POST", "/pair", code = null, body = """{"token":"other"}""".toByteArray()).status)
+        clock += 1000
+        assertEquals(403, request("POST", "/pair", code = null, body = """{"token":"the-token"}""".toByteArray()).status)
+        assertEquals(0, prompt.asks.get())
     }
 
     @Test

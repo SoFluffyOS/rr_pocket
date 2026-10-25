@@ -28,7 +28,9 @@ void main() {
 
   test('the device command stops the app on SIGTERM', () async {
     final config = PocketConfig('${temp.path}/.config/rr_pocket');
-    await Phone('127.0.0.1', phone.port, phone.code).save(config);
+    await Phone('127.0.0.1', phone.port, phone.code,
+            fingerprint: phone.fingerprint)
+        .save(config);
     final helper = await currentHelperCommand();
     expect(helper, isNot(contains('global')));
 

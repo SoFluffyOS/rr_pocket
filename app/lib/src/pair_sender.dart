@@ -23,13 +23,19 @@ class PairFailed extends PairResult {
   final String message;
 }
 
-/// Sends this phone's address and code to the computer whose QR code was
-/// scanned, trying each of its addresses in turn (docs/pairing.md).
+/// Tells the computer whose QR code was scanned where this phone is, trying
+/// each of its addresses in turn (docs/pairing.md). Not the code: this post
+/// is plain HTTP, so it carries the phone's certificate fingerprint, signed
+/// with the QR code's token; the computer then gets the code over TLS.
 class PairSender {
   const PairSender({
     this.connectTimeout = const Duration(seconds: 5),
     this.answerTimeout = const Duration(seconds: 20),
+    this.offer = Pairing.offer,
   });
+
+  /// Keeps the QR code's token on the phone for the computer to redeem.
+  final Future<PairOffer?> Function(String token) offer;
 
   /// How long each address gets to accept the connection.
   final Duration connectTimeout;
@@ -47,12 +53,18 @@ class PairSender {
         'as your computer, then scan again.',
       );
     }
+    final offered = await offer(link.token);
+    if (offered == null) {
+      return const PairFailed(
+        'RR Pocket could not get ready to pair. Restart it, then scan again.',
+      );
+    }
     final body = jsonEncode({
-      'token': link.token,
       'name': phone.name,
       'address': address,
       'port': phone.port,
-      'code': phone.code,
+      'fingerprint': offered.fingerprint,
+      'proof': offered.proof,
     });
     final client = HttpClient()..connectionTimeout = connectTimeout;
     try {

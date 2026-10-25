@@ -47,7 +47,9 @@ void main() {
   });
 
   Future<void> pairAndRegister() async {
-    await Phone('127.0.0.1', phone.port, phone.code).save(config);
+    await Phone('127.0.0.1', phone.port, phone.code,
+            fingerprint: phone.fingerprint)
+        .save(config);
     await config.registeredFile.writeAsString('["dart"]');
   }
 
@@ -84,7 +86,9 @@ void main() {
   });
 
   test('custom devices off, or the device not registered', () async {
-    await Phone('127.0.0.1', phone.port, phone.code).save(config);
+    await Phone('127.0.0.1', phone.port, phone.code,
+            fingerprint: phone.fingerprint)
+        .save(config);
     var checks = await runDoctor(config: config, flutter: flutter);
     expect(checks[2].state, DoctorState.warning);
 
@@ -101,7 +105,9 @@ void main() {
     File('${project.path}/pubspec.lock').writeAsStringSync(
       'packages:\n  camera:\n    source: hosted\n    version: "0.12.0"\n',
     );
-    final hello = await Phone('127.0.0.1', phone.port, phone.code).hello();
+    final hello = await Phone('127.0.0.1', phone.port, phone.code,
+            fingerprint: phone.fingerprint)
+        .hello();
     await writePins(hello, project);
     // pub get locks the pin.
     File('${project.path}/pubspec.lock').writeAsStringSync(

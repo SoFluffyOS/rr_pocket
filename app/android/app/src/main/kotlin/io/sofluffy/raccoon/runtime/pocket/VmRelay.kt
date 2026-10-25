@@ -7,17 +7,21 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
+import javax.net.ssl.SSLSocket
 import kotlin.concurrent.thread
 
 /**
  * Makes the engine's VM service, which listens on 127.0.0.1 only, reachable
- * from the LAN, byte for byte (HTTP, WebSockets, DDS). Its auth code in the
- * URL still guards it; the computer learns it only through the paired
- * control server. Every engine in the process shares the one VM service.
+ * from the LAN, byte for byte (HTTP, WebSockets, DDS) inside TLS ([secure]),
+ * which the computer's `pocket run` unwraps. Its auth code in the URL still
+ * guards it; the computer learns it only through the paired control server.
+ * Every engine in the process shares the one VM service.
  */
 class VmRelay(
     private val port: Int,
     private val limit: ConnectionLimit = ConnectionLimit(total = 32, perSender = 16),
+    /** Wraps each accepted connection: TLS, or nothing in some tests. */
+    private val secure: (Socket) -> Socket,
     private val vmServiceUri: () -> String?,
 ) {
     /** Every relayed connection's two ends, while it lasts. */
@@ -72,18 +76,24 @@ class VmRelay(
         try {
             relayOrThrow(client)
         } catch (_: Exception) {
-            // closeAll() or the client ended it first: an exception out of
-            // this thread would end RR Pocket.
+            // A failed handshake, or closeAll() or the client ended it
+            // first: an exception out of this thread would end RR Pocket.
             client.close()
         }
     }
 
-    private fun relayOrThrow(client: Socket) {
+    private fun relayOrThrow(raw: Socket) {
         val vmPort = vmServiceUri()?.let { URI(it).port }
         if (vmPort == null || vmPort <= 0) {
-            client.close()
+            raw.close()
             return
         }
+        // Long enough for a handshake; then none, since a VM service
+        // connection may sit quiet for as long as the session lasts.
+        raw.soTimeout = HANDSHAKE_TIMEOUT_MS
+        val client = secure(raw)
+        (client as? SSLSocket)?.startHandshake()
+        raw.soTimeout = 0
         val engine = try {
             Socket("127.0.0.1", vmPort)
         } catch (e: Exception) {
@@ -106,5 +116,9 @@ class VmRelay(
             open -= a
             open -= b
         }
+    }
+
+    private companion object {
+        const val HANDSHAKE_TIMEOUT_MS = 10_000
     }
 }

@@ -137,9 +137,11 @@ void main() {
     setUp(() async => phone = await FakePhone.start());
     tearDown(() => phone.close());
 
-    test('gets the code when the user allows it', () async {
-      final code = await requestPairing('127.0.0.1', phone.port, 'Mac');
-      expect(code, phone.code);
+    test('gets the code when the user allows it, and the certificate',
+        () async {
+      final given = await requestPairing('127.0.0.1', phone.port, 'Mac');
+      expect(given.code, phone.code);
+      expect(given.fingerprint, phone.fingerprint);
       expect(phone.pairRequests, ['Mac']);
     });
 
@@ -180,7 +182,8 @@ void main() {
     late PairListener listener;
 
     setUp(() async {
-      phone = await FakePhone.start();
+      phone = await FakePhone.start()
+        ..offeredToken = 'the-token';
       listener = await PairListener.start(
         computer: 'Mac',
         hosts: const ['127.0.0.1'],
@@ -208,13 +211,20 @@ void main() {
       }
     }
 
-    Map<String, Object?> fromPhone({String token = 'the-token', int? port}) => {
-          'token': token,
-          'name': 'Pixel 7',
-          'address': '127.0.0.1',
-          'port': port ?? phone.port,
-          'code': phone.code,
-        };
+    Map<String, Object?> fromPhone({
+      String token = 'the-token',
+      int? port,
+      String? fingerprint,
+    }) {
+      final certificate = fingerprint ?? phone.fingerprint;
+      return {
+        'name': 'Pixel 7',
+        'address': '127.0.0.1',
+        'port': port ?? phone.port,
+        'fingerprint': certificate,
+        'proof': pairingProof(token, certificate),
+      };
+    }
 
     test('pairs the phone that scanned its code, once', () async {
       final (status, body) = await post(fromPhone());
@@ -222,13 +232,25 @@ void main() {
       expect(body, {'computer': 'Mac'});
       final paired = await listener.paired;
       expect(paired.phone.code, phone.code);
+      expect(paired.phone.fingerprint, phone.fingerprint);
       expect(paired.hello['name'], 'Test Phone');
+      expect(phone.offeredToken, isNull, reason: 'the token was redeemed');
       paired.phone.close();
     });
 
-    test('refuses another token', () async {
+    test('refuses a proof made without its token', () async {
       final (status, _) = await post(fromPhone(token: 'not-it'));
       expect(status, 403);
+      expect(phone.offeredToken, 'the-token');
+    });
+
+    test('talks only to the certificate the proof was for', () async {
+      final (status, body) = await post(
+        fromPhone(fingerprint: FakePhone.fingerprintOf('other')),
+      );
+      expect(status, 502);
+      expect('${body['error']}', contains('not the RR Pocket'));
+      expect(phone.offeredToken, 'the-token', reason: 'nothing was sent');
     });
 
     test('says when it cannot reach the phone, and keeps waiting', () async {

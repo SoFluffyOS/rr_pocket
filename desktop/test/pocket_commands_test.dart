@@ -44,7 +44,9 @@ void main() {
   });
 
   Future<void> savePairing({String? code}) =>
-      Phone('127.0.0.1', phone.port, code ?? phone.code).save(config);
+      Phone('127.0.0.1', phone.port, code ?? phone.code,
+              fingerprint: phone.fingerprint)
+          .save(config);
 
   /// A resolved Flutter project in the workspace, using camera 0.12.0.
   Future<String> addProject(String name) async {
@@ -73,8 +75,12 @@ void main() {
       await commands.pair();
 
       final saved = jsonDecode(await config.deviceFile.readAsString());
-      expect(
-          saved, {'host': '127.0.0.1', 'port': phone.port, 'code': '12345678'});
+      expect(saved, {
+        'host': '127.0.0.1',
+        'port': phone.port,
+        'code': '12345678',
+        'fingerprint': phone.fingerprint,
+      });
       final ran = [
         for (final run in host.shell.ran) run.command.take(3).join(' ')
       ];
@@ -209,8 +215,12 @@ void main() {
       expect(phone.pairRequests, ['Mac']);
       expect(host.window.progressTitles, contains('Tap Allow on Pixel 7'));
       final saved = jsonDecode(await config.deviceFile.readAsString());
-      expect(
-          saved, {'host': '127.0.0.1', 'port': phone.port, 'code': phone.code});
+      expect(saved, {
+        'host': '127.0.0.1',
+        'port': phone.port,
+        'code': phone.code,
+        'fingerprint': phone.fingerprint,
+      });
       expect(messages(MessageType.info).single, startsWith('Paired with'));
     });
 
@@ -228,6 +238,7 @@ void main() {
 
     test('pairs with the phone that scans the QR code', () async {
       host.window.pickPayload = 'qr';
+      phone.offeredToken = 'the-token';
 
       final pairing = commands.pair();
       final panel = await host.window.panelOpened.future;
@@ -235,11 +246,11 @@ void main() {
       final client = HttpClient();
       final request = await client.post('127.0.0.1', page.port, '/pair');
       request.write(jsonEncode({
-        'token': 'the-token',
         'name': 'Pixel 7',
         'address': '127.0.0.1',
         'port': phone.port,
-        'code': phone.code,
+        'fingerprint': phone.fingerprint,
+        'proof': pairingProof('the-token', phone.fingerprint),
       }));
       final response = await request.close();
       await response.drain<void>();
@@ -355,7 +366,9 @@ void main() {
     });
 
     test('asks before pinning across a breaking change', () async {
-      await Phone('127.0.0.1', phone.port, phone.code).save(config);
+      await Phone('127.0.0.1', phone.port, phone.code,
+              fingerprint: phone.fingerprint)
+          .save(config);
       final project = await addProject('app');
       await phone.close();
       phone = await FakePhone.start(plugins: {'camera': '1.0.0'});
@@ -462,7 +475,7 @@ void main() {
         () async {
       // An old pairing whose phone is gone: its refresh waits on the
       // connection while the user pairs the new phone.
-      await Phone('10.255.255.1', 9, '0').save(config);
+      await Phone('10.255.255.1', 9, '0', fingerprint: 'none').save(config);
       final stale = commands.refresh();
       await Future<void>.delayed(const Duration(milliseconds: 100));
       host.window.inputs.addAll(['127.0.0.1:${phone.port}', phone.code]);

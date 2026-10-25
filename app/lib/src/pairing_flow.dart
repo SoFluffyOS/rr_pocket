@@ -131,7 +131,8 @@ class PairingFlow extends ChangeNotifier {
     final allowed = await question.ask(
       link.name,
       tag: link,
-      where: 'Sends this phone\'s code to ${link.hosts.join(' or ')}.',
+      where: 'Gives this phone\'s code to the computer at '
+          '${link.hosts.join(' or ')}.',
     );
     if (!allowed) return;
     final phone = await loadPairing();

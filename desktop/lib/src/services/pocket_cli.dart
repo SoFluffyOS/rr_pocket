@@ -11,6 +11,7 @@ import 'package:rr_pocket/src/services/pair_listener.dart';
 import 'package:rr_pocket/src/services/pair_request.dart';
 import 'package:rr_pocket/src/services/phone.dart';
 import 'package:rr_pocket/src/services/project_files.dart';
+import 'package:rr_pocket/src/services/vm_tunnel.dart';
 
 /// The `pocket` command: pairs with the phone, then stands behind the
 /// `pocket` custom device, so a stock `flutter run -d pocket` runs a project
@@ -135,8 +136,13 @@ class PocketCli {
     stdout.writeln(
       'Found ${found.name} at ${found.host}. Tap Allow on the phone...',
     );
-    final code = await requestPairing(found.host, found.port, _computer);
-    final phone = Phone(found.host, found.port, code);
+    final given = await requestPairing(found.host, found.port, _computer);
+    final phone = Phone(
+      found.host,
+      found.port,
+      given.code,
+      fingerprint: given.fingerprint,
+    );
     return _finish(phone, await phone.hello());
   }
 
@@ -329,6 +335,9 @@ class PocketCli {
   /// address, which is how Flutter finds it, then the app's `print` output,
   /// which is how Flutter shows it. Stays up like a running app would; when
   /// Flutter stops it, RR Pocket goes back to its own screen.
+  ///
+  /// The address is this computer's end of a [VmTunnel] to the phone's VM
+  /// relay, which speaks TLS; it lasts as long as this does.
   Future<int> run() async {
     final marker = config.installFailedFile;
     if (marker.existsSync()) {
@@ -349,13 +358,25 @@ class PocketCli {
     final hello = await phone.hello();
     final result = await phone.call('POST', '/run');
     final vmPath = result['vmPath'];
-    final relay = hello['vmRelayPort'];
+    final relay = switch (hello['vmRelayPort']) {
+      final int port => port,
+      _ => throw const PocketException(
+          'this RR Pocket has no VM relay; update it',
+        ),
+    };
+    final tunnel = await VmTunnel.start(
+      host: phone.host,
+      port: relay,
+      trusts: phone.trusts,
+    );
     stdout.writeln(
-      'The Dart VM service is listening on http://${phone.host}:$relay$vmPath',
+      'The Dart VM service is listening on '
+      'http://127.0.0.1:${tunnel.port}$vmPath',
     );
     unawaited(phone.logs().forEach(stdout.writeln).catchError((Object _) {}));
     await stopped.future;
     await phone.call('POST', '/stop').catchError((_) => <String, Object?>{});
+    await tunnel.close();
     return 0;
   }
 

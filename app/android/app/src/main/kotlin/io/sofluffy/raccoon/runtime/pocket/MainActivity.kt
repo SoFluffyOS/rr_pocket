@@ -26,6 +26,10 @@ class MainActivity : FlutterFragmentActivity() {
                 )
                 "scan" -> CodeScanner.scan(this, result)
                 "takeLink" -> result.success(Pocket.takeLink())
+                "offerPairing" -> when (val token = call.argument<String>("token")) {
+                    null, "" -> result.error("bad_token", "no token", null)
+                    else -> result.success(Pocket.offerPairing(token))
+                }
                 else -> result.notImplemented()
             }
         }

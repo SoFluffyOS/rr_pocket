@@ -16,6 +16,23 @@ tried in this order; each later one is the fallback for the one before.
 Whatever the route, the computer then checks the code with `GET /hello`
 before it saves the pairing, as it always has.
 
+## TLS and the certificate
+
+The phone's servers speak only TLS, with a certificate RR Pocket makes
+once and signs itself (P-256, kept with the app's data like the code). A
+computer trusts it by its fingerprint, the SHA-256 of the certificate in
+lowercase hex, which it saves with the pairing (`device.json`,
+`fingerprint`) and checks on every connection; no certificate authority
+counts. Each route learns the fingerprint its own way:
+
+| Route | How the computer learns the fingerprint | Who could get in the way |
+| --- | --- | --- |
+| QR code | from the phone, signed with the QR code's token | nobody: the token only crossed the screen to the camera |
+| Found on the network | the certificate that answers `POST /pair` | someone already in the middle of the Wi-Fi at that moment; the phone's question shows the address that asked |
+| Typed | the certificate that answers the first `GET /hello` | the same, at that moment |
+
+The code itself never crosses the network in the clear on any route.
+
 ## 1. Found on the network
 
 The phone advertises a DNS-SD service while RR Pocket runs:
@@ -26,7 +43,8 @@ The phone advertises a DNS-SD service while RR Pocket runs:
 - TXT records: `v=1`, `model=<model>`, `flutter=<Flutter version>`.
 
 The computer browses for `_rrpocket._tcp.local` for about 3 seconds, then
-asks the phone it picked:
+asks the phone it picked, over TLS, trusting the certificate that answers
+and pinning it:
 
 ```
 POST /pair          (no Authorization header)
@@ -46,15 +64,16 @@ at most 60 seconds:
 | 429 | `{"error": "…"}` | the phone said no, or nobody answered, in the last 30 seconds |
 
 The question shows the address the request came from, so a name alone
-can't pass for someone's computer.
+can't pass for someone's computer, and someone in the middle shows up as
+an address that isn't the computer's.
 
 `computer` is shown as given, cut to 64 characters. The computer waits up to
 70 seconds for the answer.
 
 ## 2. A QR code on the computer
 
-The computer listens on a random port on all its interfaces and shows a QR
-code holding:
+The computer listens, plain HTTP, on a random port on all its interfaces
+and shows a QR code holding:
 
 ```
 rrpocket://pair?v=1&hosts=192.168.1.5,10.0.0.3&port=53123&token=<token>&name=<computer>
@@ -62,10 +81,11 @@ rrpocket://pair?v=1&hosts=192.168.1.5,10.0.0.3&port=53123&token=<token>&name=<co
 
 - `hosts`: the computer's site-local IPv4 addresses, best first. The phone
   posts only to private (10/8, 172.16/12, 192.168/16) or link-local
-  (169.254/16) addresses: any page or app can open a link, and the code
-  must not leave the network, nor reach another app on the phone.
+  (169.254/16) addresses: any page or app can open a link, and a pairing
+  must not reach beyond the network, nor another app on the phone.
 - `token`: 128 random bits, base64url without padding; good for one
-  pairing, and only while the code is shown.
+  pairing, and only while the code is shown. It never crosses the network
+  in the clear.
 - `name`: the computer's name, URL-encoded.
 
 The phone scans it with Google's code scanner (Play services), or, where
@@ -74,28 +94,45 @@ The same URI opens RR Pocket from the phone's camera app. Either way the
 phone asks first: "Pair with Simon's MacBook Pro?". A QR code anyone could
 have shown must not send the pairing code without that tap.
 
-Then the phone tries each host in turn: 5 seconds to connect, then up to 20 to
-answer (the computer first checks the phone's `/hello`, up to 10 seconds):
+Once the user allows it, the phone keeps the token for 2 minutes, for one
+use, and tries each host in turn: 5 seconds to connect, then up to 20 to
+answer. It sends where it is and its certificate's fingerprint, not its
+code, with `proof` = HMAC-SHA256 of the fingerprint keyed with the token
+(lowercase hex):
 
 ```
 POST http://<host>:<port>/pair
-{"token": "<token>", "name": "Pixel 7", "address": "192.168.1.20",
- "port": 8100, "code": "H79GN4XS"}
+{"name": "Pixel 7", "address": "192.168.1.20", "port": 8100,
+ "fingerprint": "2dc91e21…", "proof": "5bdcc146…"}
 ```
+
+The computer checks the proof: only a phone that saw the QR code can make
+it, and it vouches for that fingerprint. It then asks that phone for the
+code, over TLS pinned to the fingerprint, showing the token (up to 10
+seconds), and checks the code with `/hello` (up to 10 more):
+
+```
+POST https://<address>:<port>/pair     (no Authorization header)
+{"token": "<token>"}
+→ 200 {"code": "H79GN4XS"}   once, while the token is kept
+→ 403 {"error": "…"}         another token, used, or expired
+```
+
+Then it answers the phone's post:
 
 | Status | Body | When |
 | --- | --- | --- |
-| 200 | `{"computer": "Simon's MacBook Pro"}` | paired: the computer reached the phone's `/hello` with the code |
-| 403 | `{"error": "…"}` | wrong or used token |
-| 502 | `{"error": "the computer could not reach the phone at …"}` | the computer can't reach the phone; try another network |
+| 200 | `{"computer": "Simon's MacBook Pro"}` | paired: the computer got the code and reached the phone's `/hello` with it |
+| 403 | `{"error": "…"}` | the proof is not for this QR code's token, or it was used |
+| 502 | `{"error": "the computer could not reach the phone at …"}` | the computer can't reach the phone, or a phone with that certificate; try another network |
 
 The computer stops listening after the first pairing, when the user closes
 the QR code, or after 5 minutes.
 
 ## 3. Typed
 
-Unchanged: `pocket pair <address> <code>`, or the address and code typed
-into Lumide.
+`pocket pair <address> <code>`, or the address and code typed into Lumide.
+The computer pins the certificate that answers the first `GET /hello`.
 
 ## Where each route lives
 

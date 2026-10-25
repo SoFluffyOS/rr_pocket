@@ -2,13 +2,35 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-/// RR Pocket's control server, as far as the computer sees it: checks the
-/// pairing code, answers `/hello`, takes a bundle, runs and stops.
+import 'package:crypto/crypto.dart';
+
 /// How the fake phone's user answers `POST /pair`.
 enum PairAnswer { allow, refuse, noAnswer, busy }
 
+/// RR Pocket's control server, as far as the computer sees it: over TLS
+/// with its own certificate, checks the pairing code, answers `/hello`,
+/// takes a bundle, runs and stops.
 class FakePhone {
   FakePhone._(this._server, this.code, this.plugins, this.engineRevision);
+
+  /// The phone's certificate, or another phone's, and what a computer pins
+  /// for it. Test-only keys, made with openssl.
+  static SecurityContext identity([String name = 'phone']) => SecurityContext()
+    ..useCertificateChain('test/support/${name}_cert.pem')
+    ..usePrivateKey('test/support/${name}_key.pem');
+
+  static String fingerprintOf([String name = 'phone']) {
+    final pem = File('test/support/${name}_cert.pem').readAsStringSync();
+    final body =
+        pem.split('\n').where((line) => !line.startsWith('-----')).join();
+    return sha256.convert(base64.decode(body)).toString();
+  }
+
+  /// The certificate this phone serves, as a computer pins it.
+  final fingerprint = fingerprintOf();
+
+  /// A QR code's token the user allowed, for `POST /pair {"token"}`.
+  String? offeredToken;
 
   PairAnswer pairAnswer = PairAnswer.allow;
 
@@ -20,7 +42,11 @@ class FakePhone {
     Map<String, String> plugins = const {'shared_preferences': '2.5.6'},
     String engineRevision = 'engine-a',
   }) async {
-    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final server = await HttpServer.bindSecure(
+      InternetAddress.loopbackIPv4,
+      0,
+      identity(),
+    );
     final phone = FakePhone._(server, code, plugins, engineRevision);
     server.listen(phone._handle);
     return phone;
@@ -52,6 +78,16 @@ class FakePhone {
     }
     if (request.method == 'POST' && request.uri.path == '/pair') {
       final body = jsonDecode(await utf8.decodeStream(request)) as Map;
+      if (body['token'] case final String token) {
+        final allowed = token == offeredToken;
+        if (allowed) offeredToken = null;
+        response.statusCode = allowed ? 200 : 403;
+        response.write(jsonEncode(switch (allowed) {
+          true => {'code': code},
+          false => {'error': 'this pairing QR code has expired or was used'},
+        }));
+        return response.close();
+      }
       pairRequests.add('${body['computer']}');
       final (status, reply) = switch (pairAnswer) {
         PairAnswer.allow => (200, {'code': code}),

@@ -4,7 +4,9 @@ import 'dart:io';
 
 import 'package:rr_pocket/src/constants.dart';
 import 'package:rr_pocket/src/models/models.dart';
+import 'package:rr_pocket/src/services/pair_request.dart';
 import 'package:rr_pocket/src/services/phone.dart';
+import 'package:rr_pocket/src/services/pinned_tls.dart';
 
 typedef PairedPhone = ({Phone phone, Map<String, Object?> hello});
 
@@ -13,18 +15,36 @@ class PairingCancelled extends PocketException {
   const PairingCancelled() : super('pairing was cancelled');
 }
 
-/// Checks a phone that posted its address and code: its `/hello`, with the
-/// code. Throws when the computer can't reach it.
+/// Checks the phone that paired: its `/hello`, with the code. Throws when
+/// the computer can't reach it.
 typedef VerifyPhone = Future<Map<String, Object?>> Function(Phone phone);
 
+/// Gets the code from the phone at host and port, pinned to the
+/// fingerprint, by showing the token: [redeemPairing].
+typedef RedeemToken = Future<String> Function(
+  String host,
+  int port,
+  String fingerprint,
+  String token,
+);
+
 /// The computer's side of "A QR code on the computer" (docs/pairing.md):
-/// listens for the phone that scans [link], checks it can reach that phone
-/// with the code it sent, and stops after the first pairing.
+/// listens for the phone that scans [link]; the phone posts where it is
+/// and its certificate's fingerprint, signed with the token. The computer
+/// then gets the code from the phone over TLS pinned to that certificate,
+/// checks it, and stops after the first pairing. Nothing secret crosses
+/// the network in the clear.
 ///
 /// The QR page ([pageUri], for Lumide's panel) is served to this computer
 /// only: the token in it must not reach anyone else on the network.
 class PairListener {
-  PairListener._(this._server, this.link, this._verify, Duration lifetime) {
+  PairListener._(
+    this._server,
+    this.link,
+    this._verify,
+    this._redeem,
+    Duration lifetime,
+  ) {
     _server.listen(_handle);
     _expiry = Timer(lifetime, () {
       _fail(
@@ -37,6 +57,7 @@ class PairListener {
     required String computer,
     required List<String> hosts,
     required VerifyPhone verify,
+    RedeemToken redeem = redeemPairing,
     Duration lifetime = const Duration(minutes: 5),
     String? token,
     int port = 0,
@@ -54,12 +75,13 @@ class PairListener {
       token: token ?? newPairingToken(),
       name: computer,
     );
-    return PairListener._(server, link, verify, lifetime);
+    return PairListener._(server, link, verify, redeem, lifetime);
   }
 
   final HttpServer _server;
   final PairLink link;
   final VerifyPhone _verify;
+  final RedeemToken _redeem;
   late final Timer _expiry;
   final _paired = Completer<PairedPhone>();
   bool _checking = false;
@@ -117,8 +139,12 @@ class PairListener {
       return _reply(request, 400, {'error': 'not JSON'});
     }
     if (json is! Map) return _reply(request, 400, {'error': 'not an object'});
-    final token = json['token'];
-    if (token is! String || _used || !sameToken(token, link.token)) {
+    final fingerprint = json['fingerprint'];
+    final proof = json['proof'];
+    if (fingerprint is! String ||
+        proof is! String ||
+        _used ||
+        !provesPairing(proof, link.token, fingerprint)) {
       return _reply(request, 403, {
         'error': 'this code is not the one showing; scan it again',
       });
@@ -127,25 +153,31 @@ class PairListener {
       return _reply(request, 409, {'error': 'already pairing a phone'});
     }
     final address = json['address'];
-    final code = json['code'];
     final port = switch (json['port']) {
       final int port => port,
       _ => controlPort,
     };
-    if (address is! String || code is! String) {
-      return _reply(request, 400, {'error': 'address and code are needed'});
+    if (address is! String) {
+      return _reply(request, 400, {'error': 'an address is needed'});
     }
     _checking = true;
-    final phone = Phone(address, port, normalizePairingCode(code));
+    Phone? phone;
     try {
-      final hello = await _verify(phone);
+      final code = await _redeem(address, port, fingerprint, link.token);
+      final paired = phone = Phone(
+        address,
+        port,
+        normalizePairingCode(code),
+        fingerprint: fingerprint,
+      );
+      final hello = await _verify(paired);
       _used = true;
       await _reply(request, 200, {'computer': link.name});
       _expiry.cancel();
-      if (!_paired.isCompleted) _paired.complete((phone: phone, hello: hello));
+      if (!_paired.isCompleted) _paired.complete((phone: paired, hello: hello));
       unawaited(_server.close(force: true));
     } catch (error) {
-      phone.close();
+      phone?.close();
       final shown = PhoneAddress(address, port);
       await _reply(request, 502, {
         'error': 'the computer could not reach the phone at $shown '

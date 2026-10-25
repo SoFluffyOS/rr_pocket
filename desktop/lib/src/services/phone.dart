@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:rr_pocket/src/constants.dart';
+import 'package:rr_pocket/src/services/pinned_tls.dart';
 
 /// What went wrong, in words for the user.
 class PocketException implements Exception {
@@ -19,6 +20,11 @@ String describePhoneError(Object error) => switch (error) {
       PocketException(:final message) => message,
       SocketException() =>
         'cannot reach the phone. Is RR Pocket open, on the same Wi-Fi?',
+      // Also what an RR Pocket from before TLS gives.
+      TlsException() => 'the phone at that address is not the RR Pocket this '
+          'computer paired with (it was reinstalled, its data was cleared, '
+          'or it is another device). Update RR Pocket if it is old, then '
+          'pair again: pocket pair',
       TimeoutException() => 'the phone did not answer in time',
       HttpException(:final message) => 'the connection failed ($message)',
       _ => '$error',
@@ -60,14 +66,26 @@ class PocketConfig {
   File _file(String name) => File('$directory${Platform.pathSeparator}$name');
 }
 
-/// RR Pocket's control server on the phone.
+/// RR Pocket's control server on the phone, over TLS pinned to the phone's
+/// certificate. Without a [fingerprint] (pairing typed in), it trusts the
+/// first certificate it sees and keeps that one.
 class Phone {
-  Phone(this.host, this.port, this.code);
+  Phone(this.host, this.port, this.code, {String? fingerprint})
+      : _check = FirstSeen()..fingerprint = fingerprint;
 
   final String host;
   final int port;
   final String code;
-  final _client = HttpClient()..connectionTimeout = connectionTimeout;
+  final FirstSeen _check;
+  late final _client = HttpClient(context: pinnedContext())
+    ..connectionTimeout = connectionTimeout
+    ..badCertificateCallback = (certificate, _, __) => trusts(certificate);
+
+  /// The phone's certificate as pinned; null before it first answered.
+  String? get fingerprint => _check.fingerprint;
+
+  /// Whether [certificate] is this phone's.
+  bool trusts(X509Certificate certificate) => _check.trusts(certificate);
 
   /// The paired phone, or null before pairing. A pairing file that can't
   /// be read, such as one cut short, counts as none: pairing again fixes it.
@@ -80,13 +98,15 @@ class Phone {
     } on FormatException {
       return null;
     }
+    // A pairing from before TLS has no fingerprint: pairing again makes one.
     if (json
         case {
           'host': final String host,
           'port': final int port,
           'code': final String code,
+          'fingerprint': final String fingerprint,
         }) {
-      return Phone(host, port, code);
+      return Phone(host, port, code, fingerprint: fingerprint);
     }
     return null;
   }
@@ -104,11 +124,20 @@ class Phone {
   Future<void> save(PocketConfig config) async {
     final file = config.deviceFile;
     await file.parent.create(recursive: true);
+    final fingerprint = this.fingerprint;
+    if (fingerprint == null) {
+      throw const PocketException('the phone has not answered yet; pair again');
+    }
     final draft = File('${file.path}.tmp');
     await draft.writeAsString('');
     await makePrivate(draft);
     await draft.writeAsString(
-      jsonEncode({'host': host, 'port': port, 'code': code}),
+      jsonEncode({
+        'host': host,
+        'port': port,
+        'code': code,
+        'fingerprint': fingerprint,
+      }),
     );
     await draft.rename(file.path);
   }
@@ -117,7 +146,7 @@ class Phone {
 
   /// The running app's `print` output, line by line, until the app stops.
   Stream<String> logs() async* {
-    final request = await _client.open('GET', host, port, '/logs');
+    final request = await _client.openUrl('GET', _uri('/logs'));
     request.headers.set('authorization', 'Bearer $code');
     final response = await request.close();
     yield* response.transform(utf8.decoder).transform(const LineSplitter());
@@ -129,7 +158,7 @@ class Phone {
     List<int>? body,
     bool gzip = false,
   }) async {
-    final request = await _client.open(method, host, port, path);
+    final request = await _client.openUrl(method, _uri(path));
     request.headers.set('authorization', 'Bearer $code');
     if (gzip) request.headers.set('content-encoding', 'gzip');
     request.contentLength = body?.length ?? 0;
@@ -148,6 +177,10 @@ class Phone {
     if (json == null) throw PocketException('$method $path: $text');
     return json;
   }
+
+  /// [path] may hold escapes (`%2F`), kept as they are.
+  Uri _uri(String path) =>
+      Uri.parse('${Uri(scheme: 'https', host: host, port: port)}$path');
 
   /// Ends the connections a long-lived process would otherwise keep.
   void close() => _client.close(force: true);

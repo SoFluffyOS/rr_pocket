@@ -1,5 +1,10 @@
 import 'package:flutter/services.dart';
 
+/// What the phone posts to a computer whose QR code it scanned, in place of
+/// its code: its certificate's fingerprint, and proof it saw the QR code
+/// (docs/pairing.md).
+typedef PairOffer = ({String fingerprint, String proof});
+
 /// Where a computer reaches this phone, and the code it must show.
 class Pairing {
   const Pairing({
@@ -45,6 +50,25 @@ class Pairing {
       return null;
     }
     return null;
+  }
+
+  /// Keeps [token], from a QR code the user allowed, for the computer to
+  /// redeem over TLS. Null where nothing answers.
+  static Future<PairOffer?> offer(String token) async {
+    try {
+      final offer = await channel.invokeMapMethod<String, String>(
+        'offerPairing',
+        {'token': token},
+      );
+      if (offer case {'fingerprint': final fingerprint, 'proof': final proof}) {
+        return (fingerprint: fingerprint, proof: proof);
+      }
+      return null;
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
   }
 
   /// The code in two groups of four, easier to read out.

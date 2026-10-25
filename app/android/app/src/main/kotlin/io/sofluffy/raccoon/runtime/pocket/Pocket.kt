@@ -29,6 +29,12 @@ object Pocket {
 
     private var relay: VmRelay? = null
 
+    /** Set by [start]: the phone's TLS key and certificate. */
+    private var identity: TlsIdentity? = null
+
+    /** The QR code the user last allowed pairing with. */
+    private val offers = PairOffers()
+
     /** The running project's first seconds, watched for a startup error. */
     private var watch: StartupErrorWatch? = null
 
@@ -54,7 +60,9 @@ object Pocket {
         pairing?.let { return it }
         val context = activity.applicationContext
         val pairing = Pairing(context).also { pairing = it }
-        relay = VmRelay(VM_RELAY_PORT, vmServiceUri = ::vmServiceUri).also { it.start() }
+        val identity = TlsIdentity.loadOrCreate(File(context.filesDir, "tls")).also { identity = it }
+        relay = VmRelay(VM_RELAY_PORT, secure = identity::serve, vmServiceUri = ::vmServiceUri)
+            .also { it.start() }
         // Learn the engine's VM service address now, before anything
         // attaches: a tool attached with DDS (run_probe.sh's driver does)
         // makes FlutterJNI report the computer's address instead.
@@ -76,6 +84,8 @@ object Pocket {
                 override fun stop() = stopProject()
             },
             prompt = prompt,
+            secure = identity::serve,
+            offers = offers,
         ).start()
         Advertiser(context).start(CONTROL_PORT, Build.MODEL, context.getString(R.string.rr_flutter_version))
         Log.i("RRPocket", "pair with: ${pairing.address() ?: "(offline)"} ${pairing.code}")
@@ -109,6 +119,18 @@ object Pocket {
         activity()?.let {
             it.runOnUiThread { StartupErrorPanel.show(it, message, ::stopProject) }
         }
+    }
+
+    /**
+     * Keeps [token], from a QR code the user allowed, for the computer to
+     * redeem, and returns what the phone posts to it instead of the code:
+     * the certificate's fingerprint and the proof it came from this phone.
+     */
+    @Synchronized
+    fun offerPairing(token: String): Map<String, String>? {
+        val identity = identity ?: return null
+        val proof = offers.offer(token, identity.fingerprint)
+        return mapOf("fingerprint" to identity.fingerprint, "proof" to proof)
     }
 
     /** An rrpocket://pair link for RR Pocket's own screen to take. */

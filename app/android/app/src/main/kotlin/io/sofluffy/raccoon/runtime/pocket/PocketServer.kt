@@ -17,7 +17,8 @@ import org.json.JSONException
 import org.json.JSONObject
 
 /**
- * What a paired computer drives, over plain HTTP on the LAN:
+ * What a paired computer drives, over HTTPS on the LAN ([secure]: TLS with
+ * the phone's own certificate, which the computer pinned when it paired):
  *
  *  GET  /hello            who this is: versions, plugins, the VM relay's port
  *  POST /bundle/begin     start a new bundle
@@ -26,11 +27,13 @@ import org.json.JSONObject
  *  POST /run              restart the engine into the bundle
  *  POST /stop             back to RR Pocket's own screen
  *  GET  /logs             the running app's `print` output, as it comes
- *  POST /pair             ask the user to give a computer the code
+ *  POST /pair             ask the user to give a computer the code, or
+ *                         redeem a QR code the user allowed
  *
  * Every request carries `Authorization: Bearer <pairing code>`, except
  * `/pair`: a computer that has no code yet asks for it there, and gets it
- * only when the user taps Allow on the phone (docs/pairing.md).
+ * only when the user taps Allow on the phone, or shows the token of a QR
+ * code they allowed (docs/pairing.md).
  */
 class PocketServer(
     private val port: Int,
@@ -41,6 +44,9 @@ class PocketServer(
     private val hello: () -> String,
     private val actions: Actions,
     private val prompt: PairPrompt,
+    /** Wraps each accepted connection: TLS, or nothing in some tests. */
+    private val secure: (Socket) -> Socket,
+    private val offers: PairOffers = PairOffers(),
     private val pairTimeoutMs: Long = 60_000L,
     private val quietMs: Long = 30_000L,
     private val readTimeoutMs: Int = 30_000,
@@ -114,10 +120,10 @@ class PocketServer(
     private fun serve(socket: Socket, sender: String) {
         try {
             socket.soTimeout = readTimeoutMs
-            socket.use {
+            secure(socket).use {
                 val input = BufferedInputStream(it.getInputStream())
                 val output = it.getOutputStream()
-                val from = it.inetAddress?.hostAddress ?: "an unknown address"
+                val from = socket.inetAddress?.hostAddress ?: "an unknown address"
                 while (true) {
                     val request = Request.read(input) ?: return
                     if (request.method == "GET" && request.path == "/logs") {
@@ -135,6 +141,9 @@ class PocketServer(
                 }
             }
         } catch (_: Exception) {
+        } finally {
+            // A failed handshake never reached use().
+            socket.close()
         }
     }
 
@@ -214,7 +223,15 @@ class PocketServer(
      * until a tired tap allows it.
      */
     private fun pair(request: Request, from: String): Response {
-        val computer = computerName(request)
+        val body = pairBody(request)
+        val token = body?.optString("token").orEmpty()
+        if (token.isNotEmpty()) {
+            if (!offers.redeem(token)) {
+                return Response(403, error("this pairing QR code has expired or was used; show a new one and scan it again"))
+            }
+            return Response(200, """{"code":${quote(code)}}""")
+        }
+        val computer = body?.let(::computerName)
             ?: return Response(400, error("send {\"computer\": \"<this computer's name>\"}"))
         if (now() < quietUntil) {
             return Response(429, error("the phone said no a moment ago; try again in a little while"))
@@ -246,16 +263,21 @@ class PocketServer(
         }
     }
 
-    /** The `computer` field, trimmed and cut to [MAX_NAME] characters. */
-    private fun computerName(request: Request): String? {
+    /** /pair's JSON body; null when it is too large or not an object. */
+    private fun pairBody(request: Request): JSONObject? {
         val length = request.header("content-length")?.toLongOrNull() ?: 0L
         // Anyone on the network may call /pair, so it reads no large bodies.
         if (length > MAX_PAIR_BODY) return null
-        val name = try {
-            JSONObject(request.body.readBytes().decodeToString()).optString("computer").trim()
+        return try {
+            JSONObject(request.body.readBytes().decodeToString())
         } catch (_: JSONException) {
-            return null
+            null
         }
+    }
+
+    /** The `computer` field, trimmed and cut to [MAX_NAME] characters. */
+    private fun computerName(body: JSONObject): String? {
+        val name = body.optString("computer").trim()
         if (name.isEmpty()) return null
         if (name.codePointCount(0, name.length) <= MAX_NAME) return name
         return name.substring(0, name.offsetByCodePoints(0, MAX_NAME))

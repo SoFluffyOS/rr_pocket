@@ -31,7 +31,7 @@ class VmRelayTest {
     @Test
     fun relaysBothWays() {
         val vm = echoServer()
-        val relay = VmRelay(0) { "http://127.0.0.1:${vm.localPort}/abc=/" }
+        val relay = VmRelay(0, secure = { it }) { "http://127.0.0.1:${vm.localPort}/abc=/" }
         Socket("127.0.0.1", relay.start()).use { socket ->
             socket.getOutputStream().write("hello".toByteArray())
             val read = ByteArray(5)
@@ -45,7 +45,7 @@ class VmRelayTest {
     @Test
     fun closeAllEndsWhatALastSessionLeft() {
         val vm = echoServer()
-        val relay = VmRelay(0) { "http://127.0.0.1:${vm.localPort}/abc=/" }
+        val relay = VmRelay(0, secure = { it }) { "http://127.0.0.1:${vm.localPort}/abc=/" }
         val leftover = Socket("127.0.0.1", relay.start())
         leftover.getOutputStream().write("x".toByteArray())
         assertEquals('x'.code, leftover.getInputStream().read())

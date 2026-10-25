@@ -246,7 +246,11 @@ class _FakeQuestion implements PairQuestion {
   final where = <String?>[];
 
   @override
-  Future<bool> ask(String computer, {required Object tag, String? where}) async {
+  Future<bool> ask(
+    String computer, {
+    required Object tag,
+    String? where,
+  }) async {
     asked.add(computer);
     this.where.add(where);
     return allow;
@@ -265,6 +269,10 @@ class _FakeSender implements PairSender {
 
   @override
   Duration get connectTimeout => Duration.zero;
+
+  @override
+  Future<PairOffer?> Function(String token) get offer =>
+      (_) async => null;
 
   @override
   Future<PairResult> send(PairLink link, Pairing phone) async {
