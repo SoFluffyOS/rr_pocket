@@ -6,7 +6,8 @@
 #
 # Usage: tool/build_aab.sh [--build-name 1.0.0] [--build-number 7]
 # Signs with the debug keystore unless RR_KEYSTORE, RR_KEYSTORE_PASS and
-# RR_KEY_ALIAS (and RR_KEY_PASS, if it differs) are set.
+# RR_KEY_ALIAS (and RR_KEY_PASS, if it differs) are set; tool/build_signed.sh
+# asks for them.
 # Writes build/rr_pocket.aab.
 set -euo pipefail
 

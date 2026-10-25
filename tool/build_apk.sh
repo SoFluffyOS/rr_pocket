@@ -5,7 +5,8 @@
 #
 # Usage: tool/build_apk.sh [arm64|x64]        (default arm64)
 # Signs with the debug keystore unless RR_KEYSTORE, RR_KEYSTORE_PASS and
-# RR_KEY_ALIAS are set. Writes build/rr_pocket-<abi>.apk.
+# RR_KEY_ALIAS (and RR_KEY_PASS, if it differs) are set; tool/build_signed.sh
+# asks for them. Writes build/rr_pocket-<abi>.apk.
 set -euo pipefail
 
 abi="${1:-arm64}"
@@ -44,5 +45,6 @@ mkdir -p "$root/build"
   --ks "${RR_KEYSTORE:-$HOME/.android/debug.keystore}" \
   --ks-pass "pass:${RR_KEYSTORE_PASS:-android}" \
   ${RR_KEY_ALIAS:+--ks-key-alias "$RR_KEY_ALIAS"} \
+  ${RR_KEY_PASS:+--key-pass "pass:$RR_KEY_PASS"} \
   --out "$out" "$work/aligned.apk"
 echo "Built $out (Flutter $flutter_version, not debuggable)"
