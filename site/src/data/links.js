@@ -1,5 +1,6 @@
 // Google Play, GitHub and pub.dev answer only once each is public.
 export const links = {
+  site: 'https://rr.sofluffy.io',
   play: 'https://play.google.com/store/apps/details?id=io.sofluffy.raccoon.runtime.pocket',
   github: 'https://github.com/SoFluffyOS/rr_pocket',
   issues: 'https://github.com/SoFluffyOS/rr_pocket/issues',

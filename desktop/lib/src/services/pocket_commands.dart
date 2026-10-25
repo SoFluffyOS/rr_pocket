@@ -463,7 +463,7 @@ class PocketCommands {
           label: 'Help',
           payload: helpUrl,
           icon: iconHelp,
-          tooltip: 'How RR Pocket works, in its README.',
+          tooltip: 'How RR Pocket works, in its docs.',
         ),
         const QuickPickItem(
           label: 'Sponsor RR Pocket',

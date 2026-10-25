@@ -10,9 +10,10 @@ with `tool/capture_store_screens.py` on a paired emulator, then
 - **Publish the `rr_pocket` package when the listing goes live.** The
   description tells users to run `dart pub global activate rr_pocket`; that
   works only once `desktop/` is on pub.dev.
-- **Host the site** (`../site/`: landing page, docs, privacy policy; `npm run
-  build` there, then host `dist/`) and give Play the privacy page's URL. Then point the app's footer links
-  (`app/lib/src/links.dart`) at it.
+- **Host the site at https://rr.sofluffy.io** (`../site/`: landing page,
+  docs, privacy policy; `npm run build` there, then host `dist/`). The app's
+  Help and Privacy links and the Lumide plugin's Help already point there.
+- **Privacy policy URL for Play:** https://rr.sofluffy.io/privacy.html
 - **First upload by hand:** Play's API can't create the app, so the first
   bundle goes up in the Play Console (from the workflow's artifact or
   `tool/build_aab.sh`); later releases can come from the workflow.

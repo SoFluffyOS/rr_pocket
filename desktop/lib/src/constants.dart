@@ -46,8 +46,8 @@ const String assetIcon = 'assets/icon_rr_pocket.svg';
 // warning amber
 const String colorNotAnswering = '#E6B450';
 
-// links; the repo goes public under SoFluffyOS
-const String helpUrl = 'https://github.com/SoFluffyOS/rr_pocket#readme';
+// links: the docs on RR Pocket's site (site/ in the repo)
+const String helpUrl = 'https://rr.sofluffy.io/docs.html';
 const String sponsorUrl = 'https://github.com/sponsors/simonpham';
 
 /// The first line of the pubspec_overrides.yaml that `pocket pin` writes, so

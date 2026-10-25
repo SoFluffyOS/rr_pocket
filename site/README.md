@@ -1,6 +1,6 @@
 # RR Pocket's website
 
-The landing page, the docs and the privacy policy, in React with Vite and
+https://rr.sofluffy.io, once hosted. The landing page, the docs and the privacy policy, in React with Vite and
 Tailwind, as lumide-landing is. The colours are a raccoon's (`src/index.css`):
 ash-grey fur, a near-black mask, a cream face, the tail's bands, and
 RR Pocket's amber as the one accent.

@@ -104,7 +104,8 @@ the new APK and run `tool/run_probe.sh`; it fails on any `MISSING`.
 - `app/fonts/`: Nunito, cut to static weights from Google Fonts' variable
   font (SIL Open Font License, `OFL.txt`).
 - `branding/`: the icon and the README's screenshot.
-- `site/`: the website (React, Vite and Tailwind, as lumide-landing): a
+- `site/`: the website, for https://rr.sofluffy.io (React, Vite and
+  Tailwind, as lumide-landing): a
   landing page, the docs and the privacy policy Play links to. `npm run
   build` writes static files to `site/dist/` to host anywhere. Its fonts
   and pictures are copies from `app/fonts/` and `branding/`.
