@@ -21,6 +21,8 @@ class Pairing(context: Context) {
 
     fun accepts(offered: String?, from: String) = gate.accepts(offered, from)
 
+    fun lockedOut(from: String) = gate.lockedOut(from)
+
     /** The phone's IPv4 address on Wi-Fi (or any LAN), null when offline. */
     fun address(): String? {
         val candidates = NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()

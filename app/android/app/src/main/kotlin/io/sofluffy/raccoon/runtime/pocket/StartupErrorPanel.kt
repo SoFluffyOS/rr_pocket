@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import java.lang.ref.WeakReference
 
 /**
  * What the phone shows when a project throws as it starts. If it failed
@@ -20,7 +21,8 @@ import android.widget.TextView
  * this card at the bottom leaves the rest of the app usable.
  */
 object StartupErrorPanel {
-    private var shown: View? = null
+    /** Weak: the view holds its activity, which a rotation may replace. */
+    private var shown = WeakReference<View>(null)
 
     /** Main thread. [back] returns to RR Pocket's own screen. */
     fun show(activity: Activity, message: String, back: () -> Unit) {
@@ -102,13 +104,13 @@ object StartupErrorPanel {
             scrim,
             ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
         )
-        shown = scrim
+        shown = WeakReference(scrim)
     }
 
     /** Main thread. */
     fun dismiss() {
-        val view = shown ?: return
-        shown = null
+        val view = shown.get() ?: return
+        shown.clear()
         (view.parent as? ViewGroup)?.removeView(view)
     }
 }

@@ -76,6 +76,7 @@ object Pocket {
             port = CONTROL_PORT,
             code = pairing.code,
             accepts = pairing::accepts,
+            lockedOut = pairing::lockedOut,
             root = File(context.filesDir, "pocket"),
             hello = { hello(context) },
             actions = object : PocketServer.Actions {

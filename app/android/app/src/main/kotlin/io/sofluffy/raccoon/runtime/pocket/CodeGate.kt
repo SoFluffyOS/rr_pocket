@@ -44,6 +44,10 @@ class CodeGate(
         return false
     }
 
+    /** Whether [from] is shut out for now, so a right code would fail too. */
+    @Synchronized
+    fun lockedOut(from: String): Boolean = senders[from]?.let { now() < it.lockedUntil } ?: false
+
     /**
      * Whether a sender not seen yet may try. Not while [maxSenders] are
      * locked out at once: their guesses would go uncounted.

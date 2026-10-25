@@ -32,6 +32,17 @@ class CodeGateTest {
     }
 
     @Test
+    fun saysWhoIsLockedOut() {
+        repeat(2) { gate.accepts("WRONGCOD", "10.0.0.2") }
+        assertFalse(gate.lockedOut("10.0.0.2"))
+        gate.accepts("WRONGCOD", "10.0.0.2")
+        assertTrue(gate.lockedOut("10.0.0.2"))
+        assertFalse(gate.lockedOut("10.0.0.3"))
+        time += 1000
+        assertFalse(gate.lockedOut("10.0.0.2"))
+    }
+
+    @Test
     fun aRightCodeResetsTheCount() {
         repeat(2) { gate.accepts("WRONGCOD", "10.0.0.2") }
         assertTrue(gate.accepts("K729VVAN", "10.0.0.2"))

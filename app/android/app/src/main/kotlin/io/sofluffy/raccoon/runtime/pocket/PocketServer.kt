@@ -9,6 +9,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.GZIPInputStream
@@ -40,6 +41,8 @@ class PocketServer(
     private val code: String,
     /** Whether a code offered by a sender ([senderOf]) is right. */
     private val accepts: (String?, String) -> Boolean,
+    /** Whether a sender is shut out for guessing ([CodeGate]). */
+    private val lockedOut: (String) -> Boolean = { false },
     private val root: File,
     private val hello: () -> String,
     private val actions: Actions,
@@ -52,6 +55,8 @@ class PocketServer(
     private val readTimeoutMs: Int = 30_000,
     private val limit: ConnectionLimit = ConnectionLimit(total = 32, perSender = 16),
     private val now: () -> Long = System::currentTimeMillis,
+    /** The running app's log, from now on; logcat on a phone. */
+    private val openLog: () -> Process = ::logcat,
 ) {
     @Volatile
     private var quietUntil = 0L
@@ -80,6 +85,9 @@ class PocketServer(
 
     /** Set while a /pair request waits for the user; one at a time. */
     private val asking = AtomicBoolean(false)
+
+    /** The /logs streams open: a session's ends when the next starts. */
+    private val logs = ConcurrentHashMap.newKeySet<Process>()
 
     private val staging = File(root, "staging")
     private val bundle = File(root, "bundle")
@@ -127,17 +135,22 @@ class PocketServer(
                 while (true) {
                     val request = Request.read(input) ?: return
                     if (request.method == "GET" && request.path == "/logs") {
-                        if (authorized(request, sender)) return streamLogs(output)
-                        return Response(401, error("wrong pairing code")).write(output)
+                        refusal(request, sender)?.let { refused -> return refused.write(output, close = true) }
+                        return streamLogs(output)
                     }
                     val response = try {
                         respond(request, from, sender)
                     } catch (e: Exception) {
                         Response(500, error(e.message ?: e.toString()))
                     }
-                    request.drain()
-                    response.write(output)
-                    if (request.header("connection") == "close") return
+                    // Reading the rest of a refused request, or of one too
+                    // large to read, would let anyone keep this thread busy.
+                    val close = request.header("connection") == "close" ||
+                        response.status == 401 || response.status == 429 ||
+                        request.unread > MAX_DRAIN
+                    if (!close) request.drain()
+                    response.write(output, close)
+                    if (close) return
                 }
             }
         } catch (_: Exception) {
@@ -147,13 +160,26 @@ class PocketServer(
         }
     }
 
-    private fun authorized(request: Request, sender: String) =
-        accepts(request.header("authorization")?.removePrefix("Bearer "), sender)
+    /** Null when [request] shows the code; otherwise what to answer. */
+    private fun refusal(request: Request, sender: String): Response? {
+        if (accepts(request.header("authorization")?.removePrefix("Bearer "), sender)) return null
+        if (lockedOut(sender)) {
+            return Response(429, error("too many wrong pairing codes from this computer; wait 5 minutes, then pair again"))
+        }
+        return Response(401, error("wrong pairing code"))
+    }
+
+    /** Ends every /logs stream: the session they belong to is over. */
+    private fun endLogs() {
+        for (log in logs.toList()) log.destroy()
+    }
 
     /**
-     * Dart's `print` lands in this process's log under the `flutter` tag; an
-     * app may read its own log, so this tails it for as long as the computer
-     * listens.
+     * The running app's `print` output for as long as the computer listens,
+     * or until the next /run or /stop. A computer that went away (asleep, off
+     * the Wi-Fi) is noticed only on a write, and a quiet app writes nothing:
+     * without the end at the next session, each such stream would keep a
+     * thread, a logcat and one of the sender's connections for good.
      */
     private fun streamLogs(output: OutputStream) {
         output.write(
@@ -161,29 +187,27 @@ class PocketServer(
                 .toByteArray(),
         )
         output.flush()
-        val logcat = ProcessBuilder(
-            "logcat", "-v", "raw", "-T", "1", "--pid=${android.os.Process.myPid()}",
-            "flutter:V", "*:S",
-        ).redirectErrorStream(true).start()
+        val log = openLog()
+        logs += log
         try {
-            logcat.inputStream.bufferedReader().useLines { lines ->
-                // -T 1 starts with the newest line already logged.
-                for (line in lines.drop(1)) {
-                    output.write((line + "\n").toByteArray())
-                    output.flush()
-                }
+            val reader = log.inputStream.bufferedReader()
+            reader.readLine() // logged before this stream began
+            while (true) {
+                val line = reader.readLine() ?: break
+                output.write((line + "\n").toByteArray())
+                // One TLS record per burst, not per line, for chatty apps.
+                if (!reader.ready()) output.flush()
             }
         } catch (_: Exception) {
         } finally {
-            logcat.destroy()
+            logs -= log
+            log.destroy()
         }
     }
 
     private fun respond(request: Request, from: String, sender: String): Response {
         if (request.method == "POST" && request.path == "/pair") return pair(request, from)
-        if (!authorized(request, sender)) {
-            return Response(401, error("wrong pairing code"))
-        }
+        refusal(request, sender)?.let { return it }
         val path = request.path
         return when {
             request.method == "GET" && path == "/hello" -> Response(200, hello())
@@ -205,10 +229,12 @@ class PocketServer(
                 if (!File(bundle, "kernel_blob.bin").exists()) {
                     return Response(409, error("no bundle installed"))
                 }
+                endLogs()
                 val vmPath = actions.run(bundle)
                 Response(200, """{"vmPath":${quote(vmPath)}}""")
             }
             request.method == "POST" && path == "/stop" -> {
+                endLogs()
                 actions.stop()
                 Response(200, ok())
             }
@@ -269,7 +295,7 @@ class PocketServer(
         // Anyone on the network may call /pair, so it reads no large bodies.
         if (length > MAX_PAIR_BODY) return null
         return try {
-            JSONObject(request.body.readBytes().decodeToString())
+            JSONObject(request.input.readBytes().decodeToString())
         } catch (_: JSONException) {
             null
         }
@@ -291,8 +317,8 @@ class PocketServer(
         }
         target.parentFile?.mkdirs()
         val body = when (request.header("content-encoding")) {
-            "gzip" -> GZIPInputStream(request.body)
-            else -> request.body
+            "gzip" -> GZIPInputStream(request.input)
+            else -> request.input
         }
         target.outputStream().use { body.copyTo(it) }
         return Response(200, ok())
@@ -306,9 +332,15 @@ class PocketServer(
         val method: String,
         val path: String,
         private val headers: Map<String, String>,
-        val body: InputStream,
+        private val body: Bounded,
     ) {
         fun header(name: String) = headers[name]
+
+        /** The body: at most its Content-Length, read from the connection. */
+        val input: InputStream get() = body
+
+        /** How much of the body is still unread. */
+        val unread: Long get() = body.remaining
 
         fun drain() {
             body.skip(Long.MAX_VALUE)
@@ -350,7 +382,7 @@ class PocketServer(
     }
 
     /** At most [remaining] bytes of [input], for one request's body. */
-    private class Bounded(private val input: InputStream, private var remaining: Long) : InputStream() {
+    private class Bounded(private val input: InputStream, var remaining: Long) : InputStream() {
         override fun read(): Int {
             if (remaining <= 0) return -1
             val byte = input.read()
@@ -366,8 +398,9 @@ class PocketServer(
         }
     }
 
-    private class Response(private val status: Int, private val json: String) {
-        fun write(output: OutputStream) {
+    private class Response(val status: Int, private val json: String) {
+        /** With [close], says so: the server ends the connection after it. */
+        fun write(output: OutputStream, close: Boolean = false) {
             val body = json.toByteArray()
             val reason = when (status) {
                 200 -> "OK"
@@ -382,7 +415,8 @@ class PocketServer(
             }
             output.write(
                 ("HTTP/1.1 $status $reason\r\nContent-Type: application/json\r\n" +
-                    "Content-Length: ${body.size}\r\n\r\n").toByteArray(),
+                    "Content-Length: ${body.size}\r\n" +
+                    (if (close) "Connection: close\r\n" else "") + "\r\n").toByteArray(),
             )
             output.write(body)
             output.flush()
@@ -394,6 +428,19 @@ class PocketServer(
         private const val MAX_PAIR_BODY = 4096L
         private const val MAX_LINE = 8192
         private const val MAX_HEADERS = 64
+
+        /** The most of an unwanted body read to keep the connection. */
+        private const val MAX_DRAIN = 64 * 1024L
+
+        /**
+         * Dart's `print` lands in this process's log under the `flutter`
+         * tag, and an app may read its own log. `-T 1` starts with the
+         * newest line already logged, which [streamLogs] skips.
+         */
+        private fun logcat(): Process = ProcessBuilder(
+            "logcat", "-v", "raw", "-T", "1", "--pid=${android.os.Process.myPid()}",
+            "flutter:V", "*:S",
+        ).redirectErrorStream(true).start()
 
         fun quote(text: String) =
             "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\""

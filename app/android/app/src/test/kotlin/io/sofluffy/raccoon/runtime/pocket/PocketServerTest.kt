@@ -31,10 +31,14 @@ class PocketServerTest {
     private fun startServer(
         readTimeoutMs: Int = 30_000,
         limit: ConnectionLimit = ConnectionLimit(total = 32, perSender = 16),
+        lockedOut: (String) -> Boolean = { false },
+        openLog: () -> Process = { error("this test reads no log") },
     ) = PocketServer(
         port = 0,
         code = "CODE",
         accepts = { offered, _ -> offered == "CODE" },
+        lockedOut = lockedOut,
+        openLog = openLog,
         root = root,
         hello = { """{"name":"RR Pocket"}""" },
         actions = object : PocketServer.Actions {
@@ -361,7 +365,67 @@ class PocketServerTest {
         assertFalse(stopped)
     }
 
-    private class Response(val status: Int, val body: String)
+    @Test
+    fun hangsUpAfterAWrongCode() {
+        Socket("127.0.0.1", port).use { socket ->
+            socket.soTimeout = 5000
+            socket.getOutputStream().write("GET /hello HTTP/1.1\r\nAuthorization: Bearer NOPE\r\n\r\n".toByteArray())
+
+            val response = readResponse(socket)
+
+            assertEquals(401, response.status)
+            assertTrue(response.head, response.head.contains("Connection: close"))
+            assertEquals(-1, socket.getInputStream().read())
+        }
+    }
+
+    @Test
+    fun saysWhenThisSenderIsShutOutForGuessing() {
+        val port = startServer(lockedOut = { true })
+
+        val response = Socket("127.0.0.1", port).use { socket ->
+            socket.getOutputStream().write("GET /hello HTTP/1.1\r\nAuthorization: Bearer NOPE\r\n\r\n".toByteArray())
+            readResponse(socket)
+        }
+
+        assertEquals(429, response.status)
+        assertTrue(response.body, response.body.contains("wait 5 minutes"))
+    }
+
+    @Test
+    fun hangsUpRatherThanReadALargeBodyItRefused() {
+        Socket("127.0.0.1", port).use { socket ->
+            socket.soTimeout = 5000
+            // Says 10 MB, sends none of it: reading it would wait.
+            socket.getOutputStream().write("POST /pair HTTP/1.1\r\nContent-Length: 10000000\r\n\r\n".toByteArray())
+
+            assertEquals(400, readResponse(socket).status)
+            assertEquals(-1, socket.getInputStream().read())
+        }
+    }
+
+    @Test
+    fun theNextSessionEndsTheLastOnesLogStream() {
+        val port = startServer(openLog = {
+            ProcessBuilder("sh", "-c", "echo before; echo hello; exec sleep 60").start()
+        })
+        Socket("127.0.0.1", port).use { socket ->
+            socket.soTimeout = 5000
+            socket.getOutputStream().write("GET /logs HTTP/1.1\r\nAuthorization: Bearer CODE\r\n\r\n".toByteArray())
+            val lines = socket.getInputStream().bufferedReader()
+            while (lines.readLine().isNotEmpty()) continue
+            assertEquals("hello", lines.readLine())
+
+            Socket("127.0.0.1", port).use { stop ->
+                stop.getOutputStream().write("POST /stop HTTP/1.1\r\nAuthorization: Bearer CODE\r\nConnection: close\r\n\r\n".toByteArray())
+                assertEquals(200, readResponse(stop).status)
+            }
+
+            assertEquals(null, lines.readLine())
+        }
+    }
+
+    private class Response(val status: Int, val body: String, val head: String = "")
 
     private fun request(
         method: String,
@@ -389,7 +453,7 @@ class PocketServerTest {
         val body = ByteArray(length)
         var read = 0
         while (read < length) read += input.read(body, read, length - read)
-        return Response(status, body.decodeToString())
+        return Response(status, body.decodeToString(), head.toString())
     }
 
     private fun gzip(text: String): ByteArray {
