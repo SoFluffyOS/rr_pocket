@@ -1,6 +1,7 @@
 # RR Pocket privacy policy
 
-_Draft, 2026-10-24. Host it at a public URL and give that URL to Google Play._
+_2026-10-25. The site's copy, `site/privacy.html`, is the one to host and give
+to Google Play; change both together._
 
 RR Pocket is a tool for Flutter developers: it runs, on your phone, the app
 you are developing on your computer.
@@ -8,9 +9,9 @@ you are developing on your computer.
 **What RR Pocket collects: nothing.** It has no accounts, no analytics, no
 ads and no servers. It sends nothing over the internet.
 
-**What it keeps on your phone.** A pairing code, made when you first open
-it, which your computer must show to connect. It stays on the phone until
-you clear the app's data or uninstall it.
+**What it keeps on your phone.** A pairing code and a certificate, made
+when you first open it, which your computer uses to connect. They stay on
+the phone until you clear the app's data or uninstall it.
 
 **Your network.** RR Pocket listens on your local network for the computer
 you paired, and announces itself there so your computer can find it. A
@@ -33,4 +34,4 @@ its developer; RR Pocket doesn't see or keep any of it.
 
 **Children.** RR Pocket is for developers and not directed at children.
 
-**Contact.** SoFluffy, <contact email>.
+**Contact.** SoFluffy, support@sofluffy.io.

@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RR Pocket docs</title>
+  <meta name="description" content="Install, pair and run your Flutter project on your phone with RR Pocket, and what to do when something doesn't run.">
+  <meta name="theme-color" content="#1f2933">
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="./"><img src="assets/icon.png" alt=""><span>RR Pocket</span></a>
+      <nav class="site-nav" aria-label="Site">
+        <a href="docs.html" aria-current="page">Docs</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="https://github.com/SoFluffyOS/rr_pocket">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap doc">
+    <nav class="toc" aria-label="On this page">
+      <p>On this page</p>
+      <ol>
+        <li><a href="#requirements">Requirements</a></li>
+        <li><a href="#install">Install</a></li>
+        <li><a href="#pair">Pair</a></li>
+        <li><a href="#run">Run a project</a></li>
+        <li><a href="#commands">Commands</a></li>
+        <li><a href="#plugins">Plugins</a></li>
+        <li><a href="#lumide">Lumide</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#security">Security</a></li>
+        <li><a href="#help">Help</a></li>
+      </ol>
+    </nav>
+
+    <article class="prose">
+      <h1>RR Pocket docs</h1>
+      <p class="lead">RR Pocket runs the Flutter project on your computer on your Android phone,
+        over Wi-Fi, with a stock <code>flutter run -d pocket</code>. Two parts work together: the
+        RR Pocket app on the phone, and the <code>pocket</code> command on your computer.</p>
+
+      <h2 id="requirements">Requirements</h2>
+      <ul>
+        <li><strong>A phone</strong> running Android 7.0 or later, with RR Pocket from Google
+          Play.</li>
+        <li><strong>A computer</strong> running macOS, Linux or Windows, with the Flutter SDK.
+          No Android SDK, no adb.</li>
+        <li><strong>The same Flutter version</strong> RR Pocket was built with. Its home screen
+          shows which. A project's compiled code runs only on the engine its SDK was built
+          for.</li>
+        <li><strong>One network</strong> for both, where devices can reach each other. Home
+          Wi-Fi works; guest and office networks sometimes keep devices apart.</li>
+      </ul>
+
+      <h2 id="install">Install</h2>
+      <p>On the phone, install <a href="https://play.google.com/store/apps/details?id=io.sofluffy.raccoon.runtime.pocket">RR Pocket from Google Play</a>
+        and open it. It shows its address, an 8-character pairing code and the start
+        of its certificate.</p>
+      <p>On the computer, install the <code>pocket</code> command:</p>
+      <pre>dart pub global activate rr_pocket</pre>
+      <p>If your shell can't find <code>pocket</code> afterwards, add pub's bin folder to your
+        <code>PATH</code>: <code>dart pub global activate</code> prints which folder.</p>
+
+      <h2 id="pair">Pair</h2>
+      <p>Pairing gives your computer the phone's address and code, and registers the
+        <code>pocket</code> device with Flutter. You do it once. With RR Pocket open on the
+        phone:</p>
+      <pre>pocket pair</pre>
+      <p>There are three ways to pair. Each is the fallback for the one before.</p>
+
+      <h3>1. Found on the network</h3>
+      <p><code>pocket pair</code> looks for the phone on your Wi-Fi for a few seconds, then asks
+        it to pair. The phone asks "Pair with <em>your computer</em>?" and shows the address that
+        asked. Tap Allow. Nothing to type or scan.</p>
+
+      <h3>2. A QR code</h3>
+      <p>When the network hides the phone, <code>pocket pair</code> shows a QR code instead. Tap
+        <strong>Scan QR code</strong> in RR Pocket, scan it, and allow the pairing. To go
+        straight to the QR code:</p>
+      <pre>pocket pair --qr</pre>
+
+      <h3>3. Typed</h3>
+      <p>With the address and code RR Pocket shows. This works whenever the computer can reach
+        the phone:</p>
+      <pre>pocket pair 192.168.1.20 H79GN4XS</pre>
+
+      <h3>Check the certificate</h3>
+      <p>When the phone was found or typed, <code>pocket pair</code> prints the start of the
+        phone's certificate, such as <code>2DC9 1E21</code>. RR Pocket shows the same under its
+        code. If they differ, another device on the network answered first: run
+        <code>pocket forget</code>, then <code>pocket pair --qr</code>. A QR pairing needs no
+        check: the phone proves itself with what it scanned.</p>
+
+      <h2 id="run">Run a project</h2>
+      <p>In your project folder, match its plugin versions to RR Pocket's once, then run:</p>
+      <pre>pocket pin
+flutter run -d pocket</pre>
+      <p>Flutter builds your project and sends it to the phone, and your app opens inside
+        RR Pocket. Everything <code>flutter run</code> does works as on any device:</p>
+      <ul>
+        <li><code>r</code> hot reloads, <code>R</code> hot restarts.</li>
+        <li>DevTools, breakpoints and your <code>print</code> output.</li>
+        <li><code>q</code> quits, and the phone is back on RR Pocket's screen.</li>
+      </ul>
+      <p>Your project needs no <code>android/</code> folder. The first launch takes a few
+        seconds, longer for a large app; hot reload takes under a second.</p>
+      <p>Not sure everything is set up? In the project folder:</p>
+      <pre>pocket doctor</pre>
+      <p>It checks the pairing, the phone answering, the Flutter version, the
+        <code>pocket</code> device and the project's plugins, and says what to fix for each.</p>
+
+      <h2 id="commands">Commands</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>pocket pair</code></td><td>Pair with the phone and add the <code>pocket</code> device to Flutter. Finds the phone on the network, or shows a QR code when it can't.</td></tr>
+            <tr><td><code>pocket pair --qr</code></td><td>Pair by QR code straight away.</td></tr>
+            <tr><td><code>pocket pair &lt;address&gt; &lt;code&gt;</code></td><td>Pair with the address and code RR Pocket shows.</td></tr>
+            <tr><td><code>pocket pin</code></td><td>In a project: pin its Android plugins to RR Pocket's versions in <code>pubspec_overrides.yaml</code>, then run <code>flutter pub get</code>. A breaking change is left out and named.</td></tr>
+            <tr><td><code>pocket pin --all</code></td><td>Pin breaking changes too, once your code is ready for them.</td></tr>
+            <tr><td><code>pocket doctor</code></td><td>Check the setup and the project you're in, and say what to fix.</td></tr>
+            <tr><td><code>pocket forget</code></td><td>Unpair this computer. The phone keeps its code, so pairing again works.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Flutter calls <code>pocket</code>'s other commands itself during
+        <code>flutter run</code>; you don't need them.</p>
+
+      <h2 id="plugins">Plugins</h2>
+      <p>An app built the usual way carries the Android side of each plugin it uses. Under
+        RR Pocket, your project brings only its Dart code, so RR Pocket carries the Android side
+        of these 29 plugins:</p>
+      <ul class="chips">
+        <li>camera</li><li>geolocator</li><li>flutter_local_notifications</li><li>local_auth</li>
+        <li>image_picker</li><li>file_picker</li><li>url_launcher</li><li>share_plus</li>
+        <li>shared_preferences</li><li>path_provider</li><li>sqflite</li><li>isar_community</li>
+        <li>flutter_secure_storage</li><li>video_player</li><li>just_audio</li><li>audio_session</li>
+        <li>record</li><li>webview_flutter</li><li>permission_handler</li><li>connectivity_plus</li>
+        <li>device_info_plus</li><li>package_info_plus</li><li>battery_plus</li><li>sensors_plus</li>
+        <li>vibration</li><li>wakelock_plus</li><li>in_app_review</li><li>qr_code_scanner_plus</li>
+        <li>gms_check</li>
+      </ul>
+      <p>The two sides must be the same version, so <code>pocket pin</code> writes RR Pocket's
+        versions into your project's <code>pubspec_overrides.yaml</code>. <code>flutter run</code>
+        stops before sending a project whose versions differ, and names them.</p>
+      <p>Plain Dart packages, with no Android code, work as they are. A plugin RR Pocket doesn't
+        carry gets a warning: calls to it throw <code>MissingPluginException</code>. Build your
+        app the usual way to try that one.</p>
+
+      <h2 id="lumide">Lumide</h2>
+      <p>The <code>rr_pocket</code> package is also a plugin for <a href="https://lumide.dev">Lumide</a>
+        (0.24.0 or later). Lumide loads it at its next start after
+        <code>dart pub global activate rr_pocket</code>, or install it from Lumide's Plugins
+        pane. Then, from the Command Palette or the status bar:</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td>RR Pocket: Pair with Phone</td><td>The phones found on the network, a QR code to scan, or the address and code typed in.</td></tr>
+            <tr><td>RR Pocket: Match Plugin Versions</td><td><code>pocket pin</code> for the open project.</td></tr>
+            <tr><td>RR Pocket: Show Phone</td><td>The paired phone, its Flutter version and plugins.</td></tr>
+            <tr><td>RR Pocket: Check Setup</td><td><code>pocket doctor</code>, in the RR Pocket output.</td></tr>
+            <tr><td>RR Pocket: Forget Phone</td><td>Unpair, after asking.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>After pairing, pick RR Pocket in the device list and press Run. Lumide and the
+        <code>pocket</code> command share one pairing, so pairing in either is enough.</p>
+
+      <h2 id="troubleshooting">Troubleshooting</h2>
+      <p>Start with <code>pocket doctor</code> in your project: it names most problems and how to
+        fix them.</p>
+
+      <div class="problem">
+        <h3><code>pocket pair</code> doesn't find the phone</h3>
+        <p>Some networks block the way devices find each other. <code>pocket pair</code> then
+          shows a QR code: scan it with RR Pocket. If the phone can't reach the computer either,
+          type the address and code: <code>pocket pair &lt;address&gt; &lt;code&gt;</code>.
+          If nothing works, the network keeps devices apart; try another Wi-Fi.</p>
+      </div>
+
+      <div class="problem">
+        <h3>The Flutter version differs</h3>
+        <p><code>flutter run</code> stops and says which version RR Pocket needs. Run the
+          project with that version, for example with <a href="https://fvm.app">fvm</a>:</p>
+        <pre>fvm use 3.47.7
+fvm flutter run -d pocket</pre>
+      </div>
+
+      <div class="problem">
+        <h3>Plugin versions differ</h3>
+        <p>Run <code>pocket pin</code> in the project. If it names a breaking change, update your
+          code for that plugin's new version, then run <code>pocket pin --all</code>.</p>
+      </div>
+
+      <div class="problem">
+        <h3><code>MissingPluginException</code></h3>
+        <p>Your app calls a plugin RR Pocket doesn't carry. Build your app the usual way to use
+          that one.</p>
+      </div>
+
+      <div class="problem">
+        <h3>The certificate doesn't match</h3>
+        <p>Another device answered when you paired. Unpair and pair by QR code, which can't be
+          answered by anyone else:</p>
+        <pre>pocket forget
+pocket pair --qr</pre>
+      </div>
+
+      <div class="problem">
+        <h3>The phone's address changed</h3>
+        <p>Phones get a new address on another network, and sometimes on the same one. Run
+          <code>pocket pair</code> again.</p>
+      </div>
+
+      <div class="problem">
+        <h3>"Too many wrong pairing codes"</h3>
+        <p>After 10 wrong codes from one computer, RR Pocket refuses it for 5 minutes. Wait, then
+          pair again with the code the phone shows.</p>
+      </div>
+
+      <div class="problem">
+        <h3>The app stops at start</h3>
+        <p>If your app throws as it starts, RR Pocket shows the error on the phone instead of a
+          frozen screen. Fix it and run again.</p>
+      </div>
+
+      <div class="problem">
+        <h3>You cleared RR Pocket's data</h3>
+        <p>That makes a new pairing code and certificate, so your computer no longer recognizes
+          the phone. Run <code>pocket forget</code>, then <code>pocket pair</code>.</p>
+      </div>
+
+      <h2 id="how">How it works</h2>
+      <p>RR Pocket is an Android app that carries Flutter's debug engine, the one that makes hot
+        reload possible, and the Android side of the plugins above.</p>
+      <ol>
+        <li><code>flutter run -d pocket</code> builds your project's debug bundle on the
+          computer, as for any device.</li>
+        <li>The <code>pocket</code> command, which Flutter calls for this device, sends the bundle
+          to RR Pocket over Wi-Fi.</li>
+        <li>RR Pocket restarts into your app, the same way a hot restart does.</li>
+        <li>Flutter connects to the app's debugging service through RR Pocket, for hot reload,
+          DevTools and your logs.</li>
+      </ol>
+
+      <h2 id="security">Security</h2>
+      <p>RR Pocket runs the code a paired computer sends it, so it guards who can pair:</p>
+      <ul>
+        <li><strong>Encrypted.</strong> Everything between the computer and the phone goes over
+          TLS. Your computer trusts only the certificate of the phone it paired with.</li>
+        <li><strong>A pairing code on every request.</strong> 8 characters, made on the phone.
+          10 wrong codes lock that computer out for 5 minutes.</li>
+        <li><strong>You allow each pairing</strong> on the phone, which shows who asked.</li>
+        <li><strong>Kept private on the computer.</strong> The pairing is saved in
+          <code>~/.config/rr_pocket</code> (<code>%APPDATA%\rr_pocket</code> on Windows),
+          readable only by you.</li>
+      </ul>
+      <p>Pair only computers you trust, on networks you trust. RR Pocket collects nothing; see
+        the <a href="privacy.html">privacy policy</a>.</p>
+
+      <h2 id="help">Help</h2>
+      <p>Found a bug or need help? Open an issue on
+        <a href="https://github.com/SoFluffyOS/rr_pocket/issues">GitHub</a>, or write to
+        <a href="mailto:support@sofluffy.io">support@sofluffy.io</a>.</p>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© 2026 SoFluffy</span>
+      <nav aria-label="Footer">
+        <a href="docs.html">Docs</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="https://github.com/SoFluffyOS/rr_pocket">GitHub</a>
+        <a href="https://pub.dev/packages/rr_pocket">pub.dev</a>
+        <a href="mailto:support@sofluffy.io">support@sofluffy.io</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

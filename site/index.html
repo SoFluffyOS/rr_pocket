@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RR Pocket</title>
+  <meta name="description" content="Run your Flutter project on your Android phone over Wi-Fi. No Android SDK, no adb. Hot reload in under a second.">
+  <meta property="og:title" content="RR Pocket">
+  <meta property="og:description" content="Run your Flutter project on your Android phone over Wi-Fi. No Android SDK, no adb.">
+  <meta property="og:image" content="assets/screenshot.png">
+  <meta name="theme-color" content="#1f2933">
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="./"><img src="assets/icon.png" alt=""><span>RR Pocket</span></a>
+      <nav class="site-nav" aria-label="Site">
+        <a href="docs.html">Docs</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="https://github.com/SoFluffyOS/rr_pocket">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <section class="hero">
+        <div>
+          <h1>Your Flutter app, <span class="accent">on your phone</span>, over Wi-Fi.</h1>
+          <p class="lead">RR Pocket runs the Flutter project you're working on, on your Android
+            phone, straight from your computer. No Android SDK, no Gradle build, no adb: just the
+            Flutter SDK you already have. Like Expo Go, for Flutter.</p>
+          <div class="buttons">
+            <a class="button primary" href="https://play.google.com/store/apps/details?id=io.sofluffy.raccoon.runtime.pocket">Get it on Google Play</a>
+            <a class="button secondary" href="docs.html">Read the docs</a>
+          </div>
+          <p class="note">Android 7.0 or later. No ads, no account.</p>
+        </div>
+        <img class="hero-shot" src="assets/screenshot.png" width="1080" height="1200"
+          alt="RR Pocket's home screen in light and dark: the phone's address, pairing code and certificate, ready for pocket pair.">
+      </section>
+    </div>
+
+    <section class="section">
+      <div class="wrap">
+        <h2>Three steps, then just <code>r</code></h2>
+        <p class="sub">Pair once. After that, every Flutter project runs on the phone with a stock
+          <code>flutter run</code>.</p>
+        <ol class="steps">
+          <li>
+            <h3>Open RR Pocket</h3>
+            <p>Install it from Google Play and open it. It shows the phone's address, a pairing
+              code and the Flutter version it carries.</p>
+          </li>
+          <li>
+            <h3>Pair your computer</h3>
+            <pre>dart pub global activate rr_pocket
+pocket pair</pre>
+            <p>It finds the phone on your Wi-Fi; tap Allow on the phone. Or scan the QR code it
+              shows.</p>
+          </li>
+          <li>
+            <h3>Run any project</h3>
+            <pre>pocket pin
+flutter run -d pocket</pre>
+            <p>Your app opens inside RR Pocket. <code>r</code> hot reloads, <code>R</code> hot
+              restarts, <code>q</code> quits.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2>A real device, without the Android toolchain</h2>
+        <p class="sub">RR Pocket carries Flutter's debug engine, so the phone behaves like any
+          device <code>flutter run</code> knows.</p>
+        <div class="grid">
+          <div class="card">
+            <h3>Hot reload in under a second</h3>
+            <p>Change your code and press <code>r</code>: about half a second on a Pixel 7.</p>
+          </div>
+          <div class="card">
+            <h3>Your usual tools</h3>
+            <p>DevTools, breakpoints and your <code>print</code> output work as on any other
+              device.</p>
+          </div>
+          <div class="card">
+            <h3>No Android SDK</h3>
+            <p>No Gradle build, no adb, no USB cable. The <code>pocket</code> command needs only
+              the Dart SDK, on macOS, Linux and Windows.</p>
+          </div>
+          <div class="card">
+            <h3>Errors you can see</h3>
+            <p>If your app fails as it starts, RR Pocket shows the error instead of a frozen
+              screen.</p>
+          </div>
+          <div class="card">
+            <h3>Encrypted and paired</h3>
+            <p>Everything between your computer and the phone goes over TLS, pinned to the phone
+              you paired. RR Pocket collects nothing.</p>
+          </div>
+          <div class="card">
+            <h3>Built into Lumide</h3>
+            <p>The same package is a <a href="https://lumide.dev">Lumide</a> plugin: pair from
+              the status bar, then pick RR Pocket in the device list.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2>29 plugins built in</h2>
+        <p class="sub">Your app can use these as they are. <code>pocket pin</code> matches your
+          project's versions to the ones RR Pocket carries. Plain Dart packages, Hive CE among them,
+          need nothing.</p>
+        <ul class="chips">
+          <li>camera</li><li>geolocator</li><li>flutter_local_notifications</li><li>local_auth</li>
+          <li>image_picker</li><li>file_picker</li><li>url_launcher</li><li>share_plus</li>
+          <li>shared_preferences</li><li>path_provider</li><li>sqflite</li><li>isar_community</li>
+          <li>flutter_secure_storage</li><li>video_player</li><li>just_audio</li><li>audio_session</li>
+          <li>record</li><li>webview_flutter</li><li>permission_handler</li><li>connectivity_plus</li>
+          <li>device_info_plus</li><li>package_info_plus</li><li>battery_plus</li><li>sensors_plus</li>
+          <li>vibration</li><li>wakelock_plus</li><li>in_app_review</li><li>qr_code_scanner_plus</li>
+          <li>gms_check</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="callout">
+          <h2>Why "RR"?</h2>
+          <p>Raccoon Runtime, the Flutter runtime underneath. And <code>r</code> and
+            <code>R</code>: the keys that hot reload and hot restart your app.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© 2026 SoFluffy</span>
+      <nav aria-label="Footer">
+        <a href="docs.html">Docs</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="https://github.com/SoFluffyOS/rr_pocket">GitHub</a>
+        <a href="https://pub.dev/packages/rr_pocket">pub.dev</a>
+        <a href="mailto:support@sofluffy.io">support@sofluffy.io</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>
