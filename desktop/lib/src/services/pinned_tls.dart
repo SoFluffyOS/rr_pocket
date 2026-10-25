@@ -9,6 +9,15 @@ import 'package:rr_pocket/src/models/models.dart';
 String certificateFingerprint(X509Certificate certificate) =>
     sha256.convert(certificate.der).toString();
 
+/// The start of [fingerprint] as RR Pocket shows it under its code, such as
+/// `2DC9 1E21`, for the user to compare after pairing by a route that
+/// trusts the first certificate seen. 32 bits: enough to tell another
+/// device that answered first, not one made to look the same.
+String shortFingerprint(String fingerprint) {
+  final start = fingerprint.toUpperCase().padRight(8, '?').substring(0, 8);
+  return '${start.substring(0, 4)} ${start.substring(4)}';
+}
+
 /// What the phone sends with a QR pairing to prove it saw the QR code:
 /// HMAC-SHA256 of its certificate's [fingerprint], keyed with the QR code's
 /// [token], lowercase hex.

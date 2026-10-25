@@ -200,6 +200,14 @@ void main() {
     });
   });
 
+  test('the short fingerprint is its first 8 hex digits, as the phone shows',
+      () {
+    expect(
+      shortFingerprint('2dc91e21557912f4c249c4592684a8cca77e630b'),
+      '2DC9 1E21',
+    );
+  });
+
   test('the QR proof is HMAC-SHA256 of the fingerprint, keyed by the token',
       () {
     // RFC 4231, test case 2; RR Pocket's PairOffersTest checks the same.

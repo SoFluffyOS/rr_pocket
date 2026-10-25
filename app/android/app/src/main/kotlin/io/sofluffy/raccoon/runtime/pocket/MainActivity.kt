@@ -22,6 +22,7 @@ class MainActivity : FlutterFragmentActivity() {
                         "port" to Pocket.CONTROL_PORT,
                         "code" to pairing.code,
                         "name" to Build.MODEL,
+                        "fingerprint" to Pocket.fingerprint(),
                     ),
                 )
                 "scan" -> CodeScanner.scan(this, result)

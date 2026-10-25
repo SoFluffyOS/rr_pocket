@@ -30,6 +30,18 @@ String describePhoneError(Object error) => switch (error) {
       _ => '$error',
     };
 
+/// What to compare after pairing by a route that trusted the first
+/// certificate that answered: found on the network, or typed in.
+String checkCertificate(String fingerprint, {required bool cli}) {
+  final again = switch (cli) {
+    true => 'run pocket forget, then pocket pair --qr',
+    false => 'forget this phone and pair by QR code',
+  };
+  return 'Check that RR Pocket shows certificate '
+      '${shortFingerprint(fingerprint)} under its code. If it shows another, '
+      'this computer paired with some other device: $again.';
+}
+
 /// Makes [file] readable and writable by this account only. On Windows the
 /// pairing lives under the user's own `%APPDATA%`, private already.
 Future<void> makePrivate(File file) async {

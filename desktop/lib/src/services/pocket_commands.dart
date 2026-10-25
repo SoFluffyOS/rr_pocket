@@ -201,7 +201,11 @@ class PocketCommands {
       given.code,
       fingerprint: given.fingerprint,
     );
-    await _finish(phone, () => phone.hello().timeout(helloTimeout));
+    await _finish(
+      phone,
+      () => phone.hello().timeout(helloTimeout),
+      firstSeen: true,
+    );
   }
 
   Future<void> _pairByQr() async {
@@ -261,15 +265,22 @@ class PocketCommands {
     );
     if (code == null || code.trim().isEmpty) return;
     final phone = Phone(address.host, address.port, normalizePairingCode(code));
-    await _finish(phone, () => phone.hello().timeout(helloTimeout));
+    await _finish(
+      phone,
+      () => phone.hello().timeout(helloTimeout),
+      firstSeen: true,
+    );
   }
 
   /// Checks the phone with its code ([hello]), keeps the pairing and makes
-  /// sure Flutter knows the device.
+  /// sure Flutter knows the device. [firstSeen]: the route trusted the
+  /// first certificate that answered, so the user compares it with the
+  /// phone's (docs/pairing.md).
   Future<void> _finish(
     Phone phone,
-    Future<Map<String, Object?>> Function() hello,
-  ) async {
+    Future<Map<String, Object?>> Function() hello, {
+    bool firstSeen = false,
+  }) async {
     final address = PhoneAddress(phone.host, phone.port).toString();
     try {
       final result = await context.window.withProgress(
@@ -290,9 +301,14 @@ class PocketCommands {
             'Flutter reads new devices when it starts.',
         false => '',
       };
+      final check = switch (phone.fingerprint) {
+        final fingerprint? when firstSeen =>
+          ' ${checkCertificate(fingerprint, cli: false)}',
+        _ => '',
+      };
       await _info(
         'Paired with ${status.name} (Flutter ${status.flutterVersion}). '
-        'Pick RR Pocket in the device list, then run.$restart',
+        'Pick RR Pocket in the device list, then run.$check$restart',
       );
     } finally {
       phone.close();

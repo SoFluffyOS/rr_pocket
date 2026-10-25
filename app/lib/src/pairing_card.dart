@@ -93,6 +93,8 @@ class _PairingDetails extends StatelessWidget {
           Spacing.v4,
           row('Address', pairing.address ?? 'no Wi-Fi'),
           row('Code', pairing.displayCode),
+          if (pairing.shortFingerprint case final certificate?)
+            row('Certificate', certificate),
           Spacing.v12,
           Container(
             width: double.infinity,

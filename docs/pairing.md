@@ -33,6 +33,14 @@ counts. Each route learns the fingerprint its own way:
 
 The code itself never crosses the network in the clear on any route.
 
+On the two routes that trust the first certificate, the computer then
+prints the fingerprint's first 8 hex digits (`2DC9 1E21`), and RR Pocket
+shows the same under its code. If they differ, something else on the Wi-Fi
+answered first, for example a device announcing itself as RR Pocket:
+forget it (`pocket forget`) and pair by QR code. 32 bits are enough to
+catch a device that merely answered first, not one that made certificates
+until one matched the start; against that, pair by QR code.
+
 ## 1. Found on the network
 
 The phone advertises a DNS-SD service while RR Pocket runs:

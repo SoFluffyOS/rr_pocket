@@ -66,7 +66,8 @@ the network hides the phone, it shows a QR code to scan with RR Pocket
 instead; `pocket pair <address> <code>`, with what the phone shows, always
 works. How each works: `docs/pairing.md`. Everything between the computer
 and the phone is TLS, pinned to the phone's certificate when you pair
-(`docs/wifi.md`, Security).
+(`docs/wifi.md`, Security). Found or typed, it prints the certificate's
+start, such as `2DC9 1E21`: check RR Pocket shows the same under its code.
 
 That registers the `pocket` device with your Flutter SDK. Then, from any
 project:

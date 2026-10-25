@@ -222,6 +222,11 @@ void main() {
         'fingerprint': phone.fingerprint,
       });
       expect(messages(MessageType.info).single, startsWith('Paired with'));
+      expect(
+        messages(MessageType.info).single,
+        contains('shows certificate ${shortFingerprint(phone.fingerprint)}'),
+        reason: 'the phone answered first; the user compares',
+      );
     });
 
     test('a found phone whose user refuses keeps no pairing', () async {
@@ -261,6 +266,11 @@ void main() {
       expect(panel.disposed, isTrue);
       expect(config.deviceFile.existsSync(), isTrue);
       expect(messages(MessageType.info).single, startsWith('Paired with'));
+      expect(
+        messages(MessageType.info).single,
+        isNot(contains('certificate')),
+        reason: 'the QR code proved the phone already',
+      );
     });
 
     test('closing the QR code ends pairing quietly', () async {

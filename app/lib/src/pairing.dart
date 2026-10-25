@@ -12,6 +12,7 @@ class Pairing {
     required this.code,
     this.port = 8100,
     this.name = 'Android phone',
+    this.fingerprint,
   });
 
   /// The phone's LAN address, null when it has none (no Wi-Fi).
@@ -23,6 +24,10 @@ class Pairing {
 
   /// The phone's model, such as `Pixel 7`.
   final String name;
+
+  /// SHA-256 of the phone's TLS certificate, lowercase hex: what a
+  /// computer pins when it pairs (docs/pairing.md).
+  final String? fingerprint;
 
   /// RR Pocket's own channel to its Kotlin side: pairing details, the code
   /// scanner, pairing links, and the computer asking to pair.
@@ -44,6 +49,7 @@ class Pairing {
             final String name when name.isNotEmpty => name,
             _ => 'Android phone',
           },
+          fingerprint: info['fingerprint'] as String?,
         );
       }
     } on MissingPluginException {
@@ -70,6 +76,14 @@ class Pairing {
       return null;
     }
   }
+
+  /// The certificate's first 8 hex digits, as the computer prints them
+  /// after pairing (`2DC9 1E21`): the user compares the two.
+  String? get shortFingerprint => switch (fingerprint) {
+    final full? when full.length >= 8 =>
+      '${full.substring(0, 4)} ${full.substring(4, 8)}'.toUpperCase(),
+    _ => null,
+  };
 
   /// The code in two groups of four, easier to read out.
   String get displayCode => switch (code.length) {

@@ -113,7 +113,7 @@ class PocketCli {
       );
     }
     final phone = Phone(parsed.host, parsed.port, normalizePairingCode(code));
-    return _finish(phone, await phone.hello());
+    return _finish(phone, await phone.hello(), firstSeen: true);
   }
 
   /// Finds RR Pocket on the network and asks it to pair; the phone asks its
@@ -143,7 +143,7 @@ class PocketCli {
       given.code,
       fingerprint: given.fingerprint,
     );
-    return _finish(phone, await phone.hello());
+    return _finish(phone, await phone.hello(), firstSeen: true);
   }
 
   /// Shows a QR code for the phone to scan, and waits for it.
@@ -191,13 +191,22 @@ class PocketCli {
     return phones[index - 1];
   }
 
-  Future<int> _finish(Phone phone, Map<String, Object?> hello) async {
+  /// [firstSeen]: the route trusted the first certificate that answered,
+  /// so the user compares it with the phone's (docs/pairing.md).
+  Future<int> _finish(
+    Phone phone,
+    Map<String, Object?> hello, {
+    bool firstSeen = false,
+  }) async {
     final address = PhoneAddress(phone.host, phone.port);
     await phone.save(config);
     stdout.writeln(
       'Paired with ${hello['name']} at $address '
       '(Flutter ${hello['flutterVersion']}).',
     );
+    if (phone.fingerprint case final fingerprint? when firstSeen) {
+      stdout.writeln(checkCertificate(fingerprint, cli: true));
+    }
     await ensureDeviceRegistered(
       _flutter,
       await _helperCommand(),

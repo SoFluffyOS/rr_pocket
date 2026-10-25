@@ -134,6 +134,10 @@ object Pocket {
         return mapOf("fingerprint" to identity.fingerprint, "proof" to proof)
     }
 
+    /** The certificate computers pin; null before [start]. */
+    @Synchronized
+    fun fingerprint(): String? = identity?.fingerprint
+
     /** An rrpocket://pair link for RR Pocket's own screen to take. */
     @Synchronized
     fun keepLink(link: String) {

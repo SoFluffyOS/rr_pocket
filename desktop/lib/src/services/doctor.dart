@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:rr_pocket/src/models/models.dart';
 import 'package:rr_pocket/src/services/flutter_device.dart';
 import 'package:rr_pocket/src/services/phone.dart';
+import 'package:rr_pocket/src/services/pinned_tls.dart';
 import 'package:rr_pocket/src/services/project_files.dart';
 
 enum DoctorState { ok, warning, problem }
@@ -44,7 +45,8 @@ Future<List<DoctorCheck>> runDoctor({
       checks.add(DoctorCheck(
         DoctorState.ok,
         'RR Pocket answers at $address (Flutter ${hello['flutterVersion']}, '
-        '${bundledPlugins(hello).length} plugin packages).',
+        '${bundledPlugins(hello).length} plugin packages, certificate '
+        '${shortFingerprint(phone.fingerprint ?? '')}).',
       ));
     } catch (error) {
       checks.add(DoctorCheck(
