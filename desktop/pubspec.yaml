@@ -1,6 +1,6 @@
 name: rr_pocket
 description: "Run a Flutter project on your Android phone with RR Pocket: the pocket command and the Lumide plugin."
-version: 0.1.0
+version: 1.0.0
 repository: https://github.com/SoFluffyOS/rr_pocket
 
 topics:
@@ -10,6 +10,10 @@ topics:
 
 executables:
   pocket: pocket
+
+# Throwaway keys the TLS tests make certificates with; nothing secret.
+false_secrets:
+  - /test/support/*.pem
 
 environment:
   sdk: '>=3.4.0 <4.0.0'

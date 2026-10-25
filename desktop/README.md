@@ -77,3 +77,7 @@ The pairing is shared with the `pocket` command, in `~/.config/rr_pocket`
 
 RR Pocket runs the code a paired computer sends it. Pair only phones and
 computers you trust, on networks you trust.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

@@ -11,8 +11,6 @@ RR Pocket is an Android app with Flutter's debug engine and a set of plugins
 built in. `flutter run -d pocket` compiles your project and sends it over
 Wi-Fi; the app restarts into it. Hot reload works as usual.
 
-Private for now. Design and decisions: note 025 in `project_raccoon`.
-
 ## Status
 
 Works on the Android emulator (Flutter 3.47.7, 2026-10-24):
