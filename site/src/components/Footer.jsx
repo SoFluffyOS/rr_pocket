@@ -28,8 +28,8 @@ const columns = [
   },
 ];
 
-const Footer = () => (
-  <footer className="mt-10 w-full overflow-hidden border-t border-[var(--divider)]">
+const Footer = ({ ref }) => (
+  <footer id="footer" ref={ref} className="overflow-hidden border-t border-[var(--divider)]">
     <div className="mx-auto grid max-w-6xl gap-8 px-4 pt-12 sm:grid-cols-2 md:grid-cols-4">
       <div className="space-y-3">
         <span className="text-[15px] font-extrabold text-[var(--text)]">RR Pocket</span>

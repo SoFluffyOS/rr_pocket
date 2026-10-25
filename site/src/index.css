@@ -88,6 +88,21 @@
 }
 
 @layer components {
+  /* The footer at the bottom of the window: see Layout.jsx. 100dvh, where
+     the browser has it, leaves out a phone's address bar, which 100vh
+     counts. */
+  #page-container {
+    position: relative;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  #footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+  }
+
   .squircle-panel {
     border-radius: 24px;
     corner-shape: superellipse(2);
