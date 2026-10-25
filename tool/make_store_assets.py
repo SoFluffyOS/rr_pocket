@@ -1,6 +1,8 @@
 """Composes the Play listing's graphics from store/captures/ into store/play/:
 the phone screenshots (1080x1920) and the feature graphic (1024x500). The
 sixth draws Lumide, in its Ailurus Dark theme, running the demo on RR Pocket.
+Also the README's picture, branding/screenshot.png: the home screen, light
+and dark.
 
 Every shot that shows the demo app also shows where it comes from (the
 project on a computer, the command that runs it) and says it is the
@@ -419,6 +421,17 @@ def feature_graphic():
     save(canvas, "feature-graphic", size=(1024, 500))
 
 
+def readme():
+    """The home screen, light and dark, side by side."""
+    width = 540
+    halves = [scaled(capture(name), width) for name in ("home_light", "home_dark")]
+    image = Image.new("RGB", (2 * width, halves[0].height))
+    for index, half in enumerate(halves):
+        image.paste(half, (index * width, 0))
+    image.save(ROOT / "branding/screenshot.png", optimize=True)
+    print("wrote branding/screenshot.png")
+
+
 def save(canvas, name, size=(1080, 1920)):
     OUT.mkdir(parents=True, exist_ok=True)
     image = canvas.convert("RGB")
@@ -434,6 +447,7 @@ reload()
 plugins()
 lumide()
 feature_graphic()
+readme()
 # Play wants the icon as a 32-bit PNG.
 Image.open(ROOT / "branding/icon-512.png").convert("RGBA").save(OUT / "icon-512.png")
 print("wrote store/play/icon-512.png")

@@ -1,4 +1,5 @@
-"""Captures the raw screens for the Play listing into store/captures/.
+"""Captures the raw screens for the Play listing and the README picture into
+store/captures/.
 
 Needs a device or emulator with RR Pocket installed and paired
 (pocket pair ...), and Pillow. Sets the display to a 1080x2400 phone and
@@ -103,6 +104,9 @@ def demo_status_bar(on):
         "-e command notifications -e visible false",
     ]:
         shell(f"am broadcast -a com.android.systemui.demo {command}")
+    # The status bar redraws a moment later: the first capture missed the
+    # Wi-Fi icon without this (emulator, 2026-10-25).
+    time.sleep(2)
 
 
 def open_pocket(night):
@@ -164,6 +168,7 @@ try:
     capture("home_light")
     save_pairing()
     open_pocket(night=True)
+    capture("home_dark")
     scroll_to_build_card()
     capture("plugins_dark")
     open_pocket(night=False)
