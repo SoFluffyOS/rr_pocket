@@ -1,91 +1,27 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RR Pocket privacy policy</title>
-  <meta name="description" content="RR Pocket collects nothing. What it keeps on your phone, and what it does on your network.">
-  <meta name="theme-color" content="#1f2933">
-  <link rel="icon" href="assets/icon.png">
-  <link rel="stylesheet" href="assets/style.css">
-</head>
-<body>
-  <header class="site-header">
-    <div class="wrap">
-      <a class="brand" href="./"><img src="assets/icon.png" alt=""><span>RR Pocket</span></a>
-      <nav class="site-nav" aria-label="Site">
-        <a href="docs.html">Docs</a>
-        <a href="privacy.html" aria-current="page">Privacy</a>
-        <a href="https://github.com/SoFluffyOS/rr_pocket">GitHub</a>
-      </nav>
-    </div>
-  </header>
-
-  <main class="wrap doc">
-    <nav class="toc" aria-label="On this page">
-      <p>On this page</p>
-      <ol>
-        <li><a href="#collects">What it collects</a></li>
-        <li><a href="#keeps">What it keeps</a></li>
-        <li><a href="#network">Your network</a></li>
-        <li><a href="#camera">The camera</a></li>
-        <li><a href="#your-app">The app you run</a></li>
-        <li><a href="#children">Children</a></li>
-        <li><a href="#contact">Contact</a></li>
-      </ol>
-    </nav>
-
-    <article class="prose">
-      <h1>Privacy policy</h1>
-      <p class="lead">Last updated 25 October 2026.</p>
-      <p>RR Pocket is a tool for Flutter developers: it runs, on your phone, the app you are
-        developing on your computer.</p>
-
-      <h2 id="collects">What RR Pocket collects: nothing</h2>
-      <p>It has no accounts, no analytics, no ads and no servers. It sends nothing over the
-        internet.</p>
-
-      <h2 id="keeps">What it keeps on your phone</h2>
-      <p>A pairing code and a certificate, made when you first open it, which your computer uses
-        to connect. They stay on the phone until you clear the app's data or uninstall it.</p>
-
-      <h2 id="network">Your network</h2>
-      <p>RR Pocket listens on your local network for the computer you paired, and announces
-        itself there so your computer can find it. A computer that asks to pair gets the pairing
-        code only if you tap Allow on the phone. The paired computer sends the app you are
-        developing, and RR Pocket runs it. Everything between them is encrypted (TLS), and your
-        computer talks only to the phone it paired with. Only pair computers you trust.</p>
-
-      <h2 id="camera">The camera, for pairing</h2>
-      <p>When you tap Scan QR code, RR Pocket reads the QR code your computer shows. On phones
-        with Google Play services, Google's code scanner does the scanning and gives RR Pocket
-        only the code's text; it needs no camera permission. Elsewhere RR Pocket scans itself and
-        asks for the camera first. Nothing is recorded or kept.</p>
-
-      <h2 id="your-app">The app you run in it</h2>
-      <p>Camera, microphone, location, notifications and biometrics are available to the app you
-        are developing, and Android asks you before that app uses them. What that app does with
-        them is up to you, its developer; RR Pocket doesn't see or keep any of it.</p>
-
-      <h2 id="children">Children</h2>
-      <p>RR Pocket is for developers and not directed at children.</p>
-
-      <h2 id="contact">Contact</h2>
-      <p>SoFluffy, <a href="mailto:support@sofluffy.io">support@sofluffy.io</a>.</p>
-    </article>
-  </main>
-
-  <footer class="site-footer">
-    <div class="wrap">
-      <span>© 2026 SoFluffy</span>
-      <nav aria-label="Footer">
-        <a href="docs.html">Docs</a>
-        <a href="privacy.html">Privacy</a>
-        <a href="https://github.com/SoFluffyOS/rr_pocket">GitHub</a>
-        <a href="https://pub.dev/packages/rr_pocket">pub.dev</a>
-        <a href="mailto:support@sofluffy.io">support@sofluffy.io</a>
-      </nav>
-    </div>
-  </footer>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RR Pocket privacy policy</title>
+    <meta name="description" content="RR Pocket collects nothing. What it keeps on your phone, and what it does on your network." />
+    <meta property="og:title" content="RR Pocket privacy policy" />
+    <meta property="og:description" content="RR Pocket collects nothing. What it keeps on your phone, and what it does on your network." />
+    <meta name="theme-color" content="#1C1F23" />
+    <link rel="icon" href="/icon.png" />
+    <link rel="apple-touch-icon" href="/icon.png" />
+    <script>
+      // Before the first paint, so a dark page never flashes light.
+      (function () {
+        var saved = null;
+        try { saved = localStorage.getItem('rr-theme'); } catch (e) {}
+        var dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+        if (dark) document.documentElement.classList.add('dark');
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root" data-page="privacy"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

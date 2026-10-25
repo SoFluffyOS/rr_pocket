@@ -1,0 +1,308 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Nunito, the app's font, served from here rather than Google Fonts: the
+   privacy policy says RR Pocket sends nothing anywhere, and the site keeps
+   to that too. */
+@font-face {
+  font-family: 'Nunito';
+  src: url('./assets/fonts/Nunito-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('./assets/fonts/Nunito-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('./assets/fonts/Nunito-ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+  font-display: swap;
+}
+
+/* Raccoon: ash-grey fur, a near-black mask, a cream face, the tail's dark
+   bands, and RR Pocket's amber as the one accent. */
+:root {
+  --fur: #8A9099;
+  --mask: #1C1F23;
+  --face: #F2EEE6;
+  --ring: #4A5058;
+  --amber: #FFB547;
+
+  --app-bg: var(--face);
+  --panel-bg: #FAF8F4;
+  --panel-muted: #E6E1D7;
+  --text: var(--mask);
+  --text-soft: #3B4047;
+  --text-muted: #5A6068;
+  --divider: #DAD4C8;
+  --accent: var(--amber);
+  /* Amber is too light for text on cream; links take a darker shade. */
+  --accent-ink: #8F5300;
+  --accent-soft: color-mix(in srgb, var(--amber) 24%, transparent);
+  --code-bg: var(--mask);
+  --code-text: var(--face);
+  --code-muted: var(--fur);
+}
+
+:root.dark {
+  --app-bg: #141619;
+  --panel-bg: var(--mask);
+  --panel-muted: #272B30;
+  --text: var(--face);
+  --text-soft: #D3CEC5;
+  --text-muted: var(--fur);
+  --divider: #2E3338;
+  --accent-ink: var(--amber);
+  --accent-soft: color-mix(in srgb, var(--amber) 14%, transparent);
+  --code-bg: #0E1012;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 4.5rem;
+  }
+
+  body {
+    margin: 0;
+    background: var(--app-bg);
+    color: var(--text);
+    font-family: 'Nunito', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+
+  a:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .squircle-panel {
+    border-radius: 24px;
+    corner-shape: superellipse(2);
+    background: var(--panel-bg);
+    overflow: clip;
+  }
+
+  .squircle-item {
+    border-radius: 16px;
+    corner-shape: superellipse(2);
+  }
+
+  .app-section {
+    position: relative;
+    max-width: 72rem;
+    margin-inline: auto;
+    padding: 8px;
+  }
+
+  .section-panel {
+    border-radius: 24px;
+    corner-shape: superellipse(2);
+    overflow: clip;
+    padding: 24px;
+  }
+
+  .section-title {
+    color: var(--text);
+    font-size: clamp(1.75rem, 4vw, 3rem);
+    font-weight: 800;
+    line-height: 1.08;
+  }
+
+  .section-copy {
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    height: 28px;
+    align-items: center;
+    gap: 6px;
+    border-radius: 16px;
+    corner-shape: superellipse(2);
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    background: var(--accent-soft);
+    padding-inline: 10px;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .tool-button {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 16px;
+    corner-shape: superellipse(2);
+    background: var(--accent);
+    padding-inline: 18px;
+    color: var(--mask);
+    font-size: 15px;
+    font-weight: 800;
+    transition: background-color 75ms ease, transform 75ms ease;
+  }
+
+  .tool-button:hover {
+    background: color-mix(in srgb, var(--accent) 86%, white);
+  }
+
+  .tool-button:active,
+  .ghost-button:active {
+    transform: scale(0.975);
+  }
+
+  .ghost-button {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 16px;
+    corner-shape: superellipse(2);
+    border: 1px solid var(--divider);
+    padding-inline: 18px;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 800;
+    transition: background-color 75ms ease, transform 75ms ease;
+  }
+
+  .ghost-button:hover {
+    background: color-mix(in srgb, var(--text) 6%, transparent);
+  }
+
+  .quiet-icon {
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    corner-shape: superellipse(2);
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+
+  /* A raccoon's tail: dark bands on grey fur. */
+  .tail-bands {
+    height: 8px;
+    border-radius: 999px;
+    background: repeating-linear-gradient(90deg, var(--ring) 0 18px, var(--fur) 18px 36px);
+  }
+
+  .inline-code {
+    border-radius: 6px;
+    background: var(--accent-soft);
+    padding: 0.08em 0.38em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.88em;
+    overflow-wrap: anywhere;
+  }
+
+  .link {
+    color: var(--accent-ink);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--accent-ink) 45%, transparent);
+    text-underline-offset: 0.18em;
+  }
+
+  .link:hover {
+    text-decoration-color: var(--accent-ink);
+  }
+
+  /* Long-form pages: the docs and the privacy policy. */
+  .prose-rr {
+    color: var(--text-soft);
+    font-size: 16px;
+    line-height: 1.75;
+  }
+
+  .prose-rr h2 {
+    color: var(--text);
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 3rem 0 0.75rem;
+  }
+
+  .prose-rr h3 {
+    color: var(--text);
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin: 1.75rem 0 0.4rem;
+  }
+
+  .prose-rr p {
+    margin: 0.75rem 0;
+  }
+
+  .prose-rr ul,
+  .prose-rr ol {
+    margin: 0.75rem 0;
+    padding-left: 1.4rem;
+  }
+
+  .prose-rr ul {
+    list-style: disc;
+  }
+
+  .prose-rr ol {
+    list-style: decimal;
+  }
+
+  .prose-rr li {
+    margin: 0.3rem 0;
+    padding-left: 0.2rem;
+  }
+
+  .prose-rr li::marker {
+    color: var(--text-muted);
+  }
+
+  .prose-rr strong {
+    color: var(--text);
+    font-weight: 800;
+  }
+
+  .prose-rr table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+  }
+
+  .prose-rr th,
+  .prose-rr td {
+    border-bottom: 1px solid var(--divider);
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .prose-rr th {
+    color: var(--text);
+    font-weight: 800;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

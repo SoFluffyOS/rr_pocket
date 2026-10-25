@@ -104,9 +104,10 @@ the new APK and run `tool/run_probe.sh`; it fails on any `MISSING`.
 - `app/fonts/`: Nunito, cut to static weights from Google Fonts' variable
   font (SIL Open Font License, `OFL.txt`).
 - `branding/`: the icon and the README's screenshot.
-- `site/`: the website, plain HTML to host anywhere: a landing page, the
-  docs and the privacy policy Play links to. Its fonts and pictures are
-  copies from `app/fonts/` and `branding/`.
+- `site/`: the website (React, Vite and Tailwind, as lumide-landing): a
+  landing page, the docs and the privacy policy Play links to. `npm run
+  build` writes static files to `site/dist/` to host anywhere. Its fonts
+  and pictures are copies from `app/fonts/` and `branding/`.
 - `store/`: the Play listing (`listing.md`), the privacy policy's text, the
   graphics (`play/`), and the demo app they show (`demo/`). Remake the
   graphics with `tool/capture_store_screens.py` (a paired emulator or phone)

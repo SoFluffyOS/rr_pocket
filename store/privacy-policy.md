@@ -1,7 +1,8 @@
 # RR Pocket privacy policy
 
-_2026-10-25. The site's copy, `site/privacy.html`, is the one to host and give
-to Google Play; change both together._
+_2026-10-25. The site's copy (`site/src/pages/PrivacyPage.jsx`, built to
+`privacy.html`) is the one to host and give to Google Play; change both
+together._
 
 RR Pocket is a tool for Flutter developers: it runs, on your phone, the app
 you are developing on your computer.

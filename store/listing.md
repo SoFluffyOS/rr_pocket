@@ -10,8 +10,8 @@ with `tool/capture_store_screens.py` on a paired emulator, then
 - **Publish the `rr_pocket` package when the listing goes live.** The
   description tells users to run `dart pub global activate rr_pocket`; that
   works only once `desktop/` is on pub.dev.
-- **Host the site** (`../site/`: landing page, docs, privacy policy) and give
-  Play the privacy page's URL. Then point the app's footer links
+- **Host the site** (`../site/`: landing page, docs, privacy policy; `npm run
+  build` there, then host `dist/`) and give Play the privacy page's URL. Then point the app's footer links
   (`app/lib/src/links.dart`) at it.
 - **First upload by hand:** Play's API can't create the app, so the first
   bundle goes up in the Play Console (from the workflow's artifact or
