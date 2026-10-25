@@ -66,7 +66,12 @@ class VmTunnel {
       remote.destroy();
     }
 
-    local.listen(remote.add, onDone: end, onError: (Object _) => end());
-    remote.listen(local.add, onDone: end, onError: (Object _) => end());
+    // addStream reads only as fast as the other side takes it: a heap
+    // snapshot from the phone waits in the phone's buffers, not in memory
+    // here.
+    for (final (from, to) in [(local, remote), (remote, local)]) {
+      unawaited(
+          to.addStream(from).then((_) => end(), onError: (Object _) => end()));
+    }
   }
 }

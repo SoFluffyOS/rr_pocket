@@ -267,6 +267,16 @@ void main() {
       (await listener.paired).phone.close();
     });
 
+    test('refuses a body too large to be a pairing, and keeps waiting',
+        () async {
+      final (status, _) = await post({...fromPhone(), 'pad': 'x' * 10000});
+      expect(status, 413);
+
+      final (retried, _) = await post(fromPhone());
+      expect(retried, 200);
+      (await listener.paired).phone.close();
+    });
+
     test('serves the QR page to this computer', () async {
       final client = HttpClient();
       final request = await client.getUrl(listener.pageUri);

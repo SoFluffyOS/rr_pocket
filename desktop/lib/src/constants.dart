@@ -5,6 +5,10 @@ const String deviceId = 'pocket';
 const int controlPort = 8100;
 const Duration connectionTimeout = Duration(seconds: 5);
 
+/// How long the phone gets to answer a request it took, unless the request
+/// says otherwise.
+const Duration requestTimeout = Duration(seconds: 30);
+
 // the package, as `dart pub global run` names it
 const String packageName = 'rr_pocket';
 const String cliExecutable = 'pocket';

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:rr_pocket/src/constants.dart';
 import 'package:rr_pocket/src/models/models.dart';
@@ -131,7 +132,10 @@ class PairListener {
   }
 
   Future<void> _pair(HttpRequest request) async {
-    final body = await utf8.decodeStream(request);
+    final body = await _readSmall(request);
+    if (body == null) {
+      return _reply(request, 413, {'error': 'too large for a pairing'});
+    }
     final Object? json;
     try {
       json = jsonDecode(body);
@@ -187,6 +191,21 @@ class PairListener {
       _checking = false;
     }
   }
+
+  /// The body as text; null past [maxPairBody] bytes. Anyone on the
+  /// network can post here while the code shows, and a body read whole
+  /// could fill this computer's memory.
+  static Future<String?> _readSmall(HttpRequest request) async {
+    if (request.contentLength > maxPairBody) return null;
+    final bytes = BytesBuilder(copy: false);
+    await for (final chunk in request) {
+      bytes.add(chunk);
+      if (bytes.length > maxPairBody) return null;
+    }
+    return utf8.decode(bytes.takeBytes(), allowMalformed: true);
+  }
+
+  static const maxPairBody = 4096;
 
   static Future<void> _reply(
     HttpRequest request,

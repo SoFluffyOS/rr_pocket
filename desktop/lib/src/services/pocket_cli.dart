@@ -321,6 +321,8 @@ class PocketCli {
         '/bundle/${Uri.encodeComponent(relative)}',
         body: packed,
         gzip: true,
+        // Room for a slow Wi-Fi: 100 KB/s.
+        timeout: requestTimeout + Duration(milliseconds: packed.length ~/ 100),
       );
     }
     await phone.call('POST', '/bundle/commit');
@@ -356,14 +358,20 @@ class PocketCli {
     }
     final phone = await Phone.load(config);
     final hello = await phone.hello();
-    final result = await phone.call('POST', '/run');
-    final vmPath = result['vmPath'];
+    // Checked before the project starts on the phone, not after.
     final relay = switch (hello['vmRelayPort']) {
       final int port => port,
       _ => throw const PocketException(
           'this RR Pocket has no VM relay; update it',
         ),
     };
+    // The phone restarts its engine and waits for it, up to a minute.
+    final result = await phone.call(
+      'POST',
+      '/run',
+      timeout: const Duration(seconds: 90),
+    );
+    final vmPath = result['vmPath'];
     final tunnel = await VmTunnel.start(
       host: phone.host,
       port: relay,

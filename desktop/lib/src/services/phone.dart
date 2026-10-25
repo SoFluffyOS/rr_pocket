@@ -142,7 +142,8 @@ class Phone {
     await draft.rename(file.path);
   }
 
-  Future<Map<String, Object?>> hello() => call('GET', '/hello');
+  Future<Map<String, Object?>> hello() =>
+      call('GET', '/hello', timeout: const Duration(seconds: 10));
 
   /// The running app's `print` output, line by line, until the app stops.
   Stream<String> logs() async* {
@@ -152,19 +153,35 @@ class Phone {
     yield* response.transform(utf8.decoder).transform(const LineSplitter());
   }
 
+  /// Fails with a [TimeoutException] when the phone has not answered
+  /// within [timeout]: one that took the connection and then went quiet
+  /// (asleep, off the Wi-Fi) would otherwise hold Flutter's ping, or a run,
+  /// for good.
   Future<Map<String, Object?>> call(
     String method,
     String path, {
     List<int>? body,
     bool gzip = false,
+    Duration timeout = requestTimeout,
   }) async {
-    final request = await _client.openUrl(method, _uri(path));
-    request.headers.set('authorization', 'Bearer $code');
-    if (gzip) request.headers.set('content-encoding', 'gzip');
-    request.contentLength = body?.length ?? 0;
-    if (body != null) request.add(body);
-    final response = await request.close();
-    final text = await utf8.decodeStream(response);
+    HttpClientRequest? sent;
+    Future<(HttpClientResponse, String)> exchange() async {
+      final request = sent = await _client.openUrl(method, _uri(path));
+      request.headers.set('authorization', 'Bearer $code');
+      if (gzip) request.headers.set('content-encoding', 'gzip');
+      request.contentLength = body?.length ?? 0;
+      if (body != null) request.add(body);
+      final response = await request.close();
+      return (response, await utf8.decodeStream(response));
+    }
+
+    final (response, text) = await exchange().timeout(
+      timeout,
+      onTimeout: () {
+        sent?.abort();
+        throw TimeoutException('$method $path', timeout);
+      },
+    );
     if (response.statusCode == 401) {
       throw const PocketException(
         'the phone refused the pairing code; pair again',

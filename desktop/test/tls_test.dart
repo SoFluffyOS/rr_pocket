@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:rr_pocket/rr_pocket.dart';
 import 'package:test/test.dart';
@@ -62,6 +64,39 @@ void main() {
       expect((await Phone.tryLoad(config))?.fingerprint, phone.fingerprint);
     });
 
+    test('gives up on a phone that takes a request and never answers',
+        () async {
+      final silent = await SecureServerSocket.bind(
+        InternetAddress.loopbackIPv4,
+        0,
+        FakePhone.identity(),
+      );
+      final held = <Socket>[];
+      silent.listen(held.add);
+      addTearDown(() async {
+        for (final socket in held) {
+          socket.destroy();
+        }
+        await silent.close();
+      });
+      final pinned = Phone(
+        '127.0.0.1',
+        silent.port,
+        phone.code,
+        fingerprint: phone.fingerprint,
+      );
+
+      await expectLater(
+        pinned.call(
+          'GET',
+          '/hello',
+          timeout: const Duration(milliseconds: 300),
+        ),
+        throwsA(isA<TimeoutException>()),
+      );
+      pinned.close();
+    });
+
     test('a pairing from before TLS counts as none', () async {
       final config = PocketConfig(
         (await Directory.systemTemp.createTemp('rr_pocket_tls')).path,
@@ -120,6 +155,35 @@ void main() {
             certificateFingerprint(certificate) == phone.fingerprint,
       );
       expect(await through(tunnel), 'ping');
+      await tunnel.close();
+    });
+
+    test('carries a large stream intact, and an end from either side',
+        () async {
+      final tunnel = await VmTunnel.start(
+        host: '127.0.0.1',
+        port: relay.port,
+        trusts: (certificate) =>
+            certificateFingerprint(certificate) == phone.fingerprint,
+      );
+      final local = await Socket.connect('127.0.0.1', tunnel.port);
+      final sent = List<int>.generate(8 << 20, (i) => i * 31 & 0xff);
+      final received = BytesBuilder(copy: false);
+      final echoed = Completer<void>();
+      final ended = Completer<void>();
+      local.listen(
+        (chunk) {
+          received.add(chunk);
+          if (received.length == sent.length) echoed.complete();
+        },
+        onDone: ended.complete,
+      );
+      local.add(sent);
+
+      await echoed.future.timeout(const Duration(seconds: 20));
+      expect(received.takeBytes(), sent);
+      await local.close();
+      await ended.future.timeout(const Duration(seconds: 5));
       await tunnel.close();
     });
 
