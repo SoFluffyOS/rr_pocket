@@ -20,7 +20,12 @@ void main() {
     await Phone('127.0.0.1', phone.port, phone.code,
             fingerprint: phone.fingerprint)
         .save(config);
-    cli = PocketCli(config: config, environment: const {});
+    // No search of the real network when the phone doesn't answer.
+    cli = PocketCli(
+      config: config,
+      environment: const {},
+      discover: () async => const [],
+    );
 
     // A project and the bundle Flutter builds for it.
     final project = temp.path;
@@ -70,6 +75,52 @@ void main() {
     expect(await cli(['install', bundle.path, 'app']), 1);
     expect(config.installFailedFile.readAsStringSync(), contains('reach'));
     expect(await cli(['run', 'app']), 1);
+  });
+
+  test('ping follows the phone to a new address, by its certificate', () async {
+    final moved = await FakePhone.start(code: phone.code);
+    final stranger =
+        await FakePhone.start(code: phone.code, identityName: 'other');
+    addTearDown(moved.close);
+    addTearDown(stranger.close);
+    final oldPort = phone.port;
+    await phone.close();
+    cli = PocketCli(
+      config: config,
+      environment: const {},
+      discover: () async => [
+        FoundPhone(name: 'Other', host: '127.0.0.1', port: stranger.port),
+        FoundPhone(name: 'Pixel 7', host: '127.0.0.1', port: moved.port),
+      ],
+    );
+
+    expect(await cli(['ping']), 0);
+
+    expect(stranger.requests, isEmpty);
+    expect((await Phone.load(config)).port, moved.port);
+    expect(moved.port, isNot(oldPort));
+  });
+
+  test('a phone that no longer answers, and is not found, fails ping',
+      () async {
+    final port = phone.port;
+    await phone.close();
+    expect(await cli(['ping']), 1);
+    expect((await Phone.load(config)).port, port);
+  });
+
+  test('screenshot: the PNG, or what to do on an older RR Pocket', () async {
+    final paired = await Phone.load(config);
+    await expectLater(
+      paired.screenshot(),
+      throwsA(isA<PocketException>()
+          .having((e) => e.message, 'message', contains('update it'))),
+    );
+
+    phone.screenshot = [0x89, 0x50, 0x4e, 0x47];
+    expect(await paired.screenshot(), [0x89, 0x50, 0x4e, 0x47]);
+    expect(await cli(['screenshot']), 0);
+    paired.close();
   });
 
   test('an unreadable pairing counts as none', () async {

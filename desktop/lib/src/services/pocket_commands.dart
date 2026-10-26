@@ -13,6 +13,7 @@ import 'package:rr_pocket/src/services/pair_request.dart';
 import 'package:rr_pocket/src/services/phone.dart';
 import 'package:rr_pocket/src/services/project_files.dart';
 import 'package:rr_pocket/src/services/project_picker.dart';
+import 'package:rr_pocket/src/services/reach.dart';
 import 'package:rr_pocket/src/services/status_bar_service.dart';
 
 /// The Lumide commands: pair with the phone, match a project's plugin
@@ -67,15 +68,20 @@ class PocketCommands {
       await _show(const NotPaired());
       return const NotPaired();
     }
+    phone.close();
     final address = PhoneAddress(phone.host, phone.port).toString();
     PhoneStatus status;
     try {
-      final hello = await phone.hello().timeout(helloTimeout);
-      status = Reachable.fromHello(address, hello);
+      // Followed to a new address, if the Wi-Fi gave it one.
+      final (reached, hello) =
+          await reachPhone(config, discover: _discover).timeout(helloTimeout);
+      reached.close();
+      status = Reachable.fromHello(
+        PhoneAddress(reached.host, reached.port).toString(),
+        hello,
+      );
     } catch (error) {
       status = Unreachable(address: address, reason: describePhoneError(error));
-    } finally {
-      phone.close();
     }
     if (pairings == _pairings) await _show(status);
     return status;
@@ -510,6 +516,7 @@ class PocketCommands {
       task: (_) => runDoctor(
         config: config,
         flutter: _flutter,
+        discover: _discover,
         project: switch (project) {
           final path? => Directory(path),
           null => null,

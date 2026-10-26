@@ -43,7 +43,8 @@ phone's own certificate (Security, below).
   Checked on a Pixel 7 by killing a session hard: the next one hot
   restarts in 1.4 s.
 - **`flutter run` is stock.** `pocket pair` registers a custom device
-  whose commands are `pocket ping | install | run | uninstall`, run by
+  whose commands are `pocket ping | install | run | uninstall | screenshot`,
+  run by
   Flutter's `dart` as `dart --packages=<config> package:rr_pocket/pocket.dart`
   (0.29 s a call), with the package config of the copy that paired: an
   installed package's stays at the same path across upgrades. Not the
@@ -53,6 +54,25 @@ phone's own certificate (Security, below).
   Dart VM service is listening on http://127.0.0.1:<tunnel>/<auth>/", which
   is how the tool finds it, then the app's log lines, which is how the tool
   shows them.
+- **Uninstall stops only a running project.** Flutter calls `uninstall`
+  before every install; with nothing running, `/stop` leaves RR Pocket's
+  own screen alone instead of starting a new engine during the upload.
+- **The log stream holds the session.** `pocket run` keeps `/logs` open for
+  the whole run, so when it closes from the computer's side the phone stops
+  the project, even when the tool was killed before sending `/stop` (Flutter
+  on Windows has no SIGTERM to send). A stream whose session a later `/run`
+  or `/stop` already ended stops nothing.
+- **Screenshots.** `s` in `flutter run` runs `pocket screenshot`, which
+  prints `GET /screenshot` as base64, as Flutter's custom devices expect.
+  The phone draws the Flutter view's last frame into a bitmap
+  (`FlutterRenderer.getBitmap`); platform views, such as a camera preview,
+  are not in it. Not yet tried on a phone (2026-10-27).
+- **A phone at a new address.** When the phone doesn't answer where it
+  paired (connection refused or failed, or another certificate there),
+  `ping`, `install`, `run`, `pin`, `doctor` and the Lumide plugin look for
+  it by mDNS; a phone that shows the pinned certificate is the same one,
+  and the pairing moves to its address. A timeout doesn't start a search:
+  that phone is more likely asleep, and Flutter pings on every poll.
 - **Versions.** `/hello` reports the Flutter version and engine revision
   RR Pocket was built with (stamped by `tool/build_apk.sh` through Gradle
   `resValue`s); `install` compares the engine revision with the SDK's in
@@ -117,7 +137,9 @@ tunnel started in 11.3 s, hot reload 0.43 s, hot restart 2.49 s.
 - **Logs.** DDS refuses to start while another client is attached, so the
   helper can't subscribe to the VM service for output. Dart's `print` goes
   to the process's log under the `flutter` tag, and an app may read its own
-  log: `/logs` runs `logcat --pid=<own pid> flutter:V *:S` and streams it.
+  log: `/logs` runs `logcat -v tag --pid=<own pid> flutter:V *:E` and
+  streams it, `print` lines bare and errors under other tags with their tag
+  (`E/CameraX: ...`), so a plugin's native failures show in `flutter run`.
 - **Cleartext.** Android blocks plain HTTP, even to 127.0.0.1, unless the
   app allows it; RR Pocket does (`usesCleartextTraffic`): projects call
   their dev servers over HTTP, and RR Pocket calls its own VM service on

@@ -53,6 +53,9 @@ Future<void> registerDevice(RunFlutter flutter, List<String> helper) async {
 /// returns whether it had to. A running `flutter daemon` reads custom devices
 /// only when it starts, but pings them on every poll: registered before
 /// pairing, the device appears as soon as pairing makes its ping succeed.
+///
+/// The record is the whole device config, so a newer `rr_pocket` whose
+/// device does more (screenshots) registers again by itself.
 Future<bool> ensureDeviceRegistered(
   RunFlutter flutter,
   List<String> helper,
@@ -60,7 +63,7 @@ Future<bool> ensureDeviceRegistered(
   bool force = false,
 }) async {
   final record = config.registeredFile;
-  final wanted = jsonEncode(helper);
+  final wanted = jsonEncode(deviceConfig(helper));
   if (!force &&
       await record.exists() &&
       await record.readAsString() == wanted) {

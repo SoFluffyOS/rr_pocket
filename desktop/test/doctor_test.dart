@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:rr_pocket/rr_pocket.dart';
@@ -46,11 +47,24 @@ void main() {
     await temp.delete(recursive: true);
   });
 
+  /// Registered as `pocket pair` does, with a Dart and a package config
+  /// that exist unless [dart] says otherwise.
+  Future<void> register({String? dart}) async {
+    final packages = File('${temp.path}/package_config.json')
+      ..writeAsStringSync('{}');
+    await config.registeredFile.parent.create(recursive: true);
+    await config.registeredFile.writeAsString(jsonEncode(deviceConfig([
+      dart ?? Platform.resolvedExecutable,
+      '--packages=${packages.path}',
+      cliLibrary,
+    ])));
+  }
+
   Future<void> pairAndRegister() async {
     await Phone('127.0.0.1', phone.port, phone.code,
             fingerprint: phone.fingerprint)
         .save(config);
-    await config.registeredFile.writeAsString('["dart"]');
+    await register();
   }
 
   List<DoctorState> states(List<DoctorCheck> checks) =>
@@ -96,6 +110,46 @@ void main() {
     checks = await runDoctor(config: config, flutter: flutter);
     expect(checks[2].state, DoctorState.problem);
     expect(checks[2].fix, contains('pocket pair'));
+  });
+
+  test('a registered device whose Dart is gone', () async {
+    await pairAndRegister();
+    await register(dart: '${temp.path}/old_flutter/bin/dart');
+    final checks = await runDoctor(config: config, flutter: flutter);
+    expect(checks[2].state, DoctorState.problem);
+    expect(checks[2].found, contains('old_flutter/bin/dart'));
+    expect(checks[2].fix, contains('pocket pair'));
+  });
+
+  test('a device registered by an older rr_pocket', () async {
+    await pairAndRegister();
+    await config.registeredFile.writeAsString('["dart"]');
+    final checks = await runDoctor(config: config, flutter: flutter);
+    expect(checks[2].state, DoctorState.warning);
+    expect(checks[2].found, contains('older rr_pocket'));
+  });
+
+  test('follows the phone to a new address', () async {
+    // Paired at an address where nothing listens now.
+    final gone = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final oldPort = gone.port;
+    await gone.close();
+    await Phone('127.0.0.1', oldPort, phone.code,
+            fingerprint: phone.fingerprint)
+        .save(config);
+    await register();
+
+    final checks = await runDoctor(
+      config: config,
+      flutter: flutter,
+      discover: () async => [
+        FoundPhone(name: 'Pixel 7', host: '127.0.0.1', port: phone.port),
+      ],
+    );
+
+    expect(states(checks), everyElement(DoctorState.ok));
+    expect(checks.first.found, contains('moved from 127.0.0.1:$oldPort'));
+    expect((await Phone.load(config)).port, phone.port);
   });
 
   test('after a pin, the project matches', () async {

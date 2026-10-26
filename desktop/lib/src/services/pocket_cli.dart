@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:rr_pocket/src/constants.dart';
@@ -11,6 +12,7 @@ import 'package:rr_pocket/src/services/pair_listener.dart';
 import 'package:rr_pocket/src/services/pair_request.dart';
 import 'package:rr_pocket/src/services/phone.dart';
 import 'package:rr_pocket/src/services/project_files.dart';
+import 'package:rr_pocket/src/services/reach.dart';
 import 'package:rr_pocket/src/services/vm_tunnel.dart';
 
 /// The `pocket` command: pairs with the phone, then stands behind the
@@ -24,7 +26,7 @@ import 'package:rr_pocket/src/services/vm_tunnel.dart';
 /// ```
 ///
 /// Flutter calls the rest: `ping`, `install <flutter_assets> <app>`,
-/// `run <app>`, `uninstall <app>`.
+/// `run <app>`, `uninstall <app>`, `screenshot`.
 class PocketCli {
   PocketCli({
     PocketConfig? config,
@@ -74,6 +76,7 @@ class PocketCli {
         ['install', final bundle, _] => _recordInstall(() => install(bundle)),
         ['run', ...] => run(),
         ['uninstall', ...] => stop(),
+        ['screenshot'] => screenshot(),
         _ => usage(),
       };
     } on PocketException catch (e) {
@@ -223,6 +226,7 @@ class PocketCli {
       config: config,
       flutter: _flutter,
       project: project,
+      discover: _discover,
     );
     stdout.writeln(describeDoctor(checks));
     return switch (checks.any((check) => check.state == DoctorState.problem)) {
@@ -250,14 +254,32 @@ class PocketCli {
   }
 
   Future<int> ping() async {
-    await (await Phone.load(config)).hello();
+    await _reach();
+    return 0;
+  }
+
+  /// The paired phone, followed to a new address when the Wi-Fi gave it
+  /// one ([reachPhone]).
+  Future<(Phone, Map<String, Object?>)> _reach() => reachPhone(
+        config,
+        discover: _discover,
+        moved: (address) => stderr.writeln(
+          'RR Pocket: the phone is at $address now; pairing updated.',
+        ),
+      );
+
+  /// Writes what the phone's screen shows to stdout as base64, as Flutter's
+  /// custom devices take a screenshot (`s` in `flutter run`).
+  Future<int> screenshot() async {
+    final (phone, _) = await _reach();
+    stdout.write(base64Encode(await phone.screenshot()));
     return 0;
   }
 
   /// Pins the project's Android plugins to the versions RR Pocket carries,
   /// in its pubspec_overrides.yaml, then resolves.
   Future<int> pin(Directory project, {bool all = false}) async {
-    final hello = await (await Phone.load(config)).hello();
+    final (_, hello) = await _reach();
     final written = await writePins(hello, project, all: all);
     stdout.writeln(
       'Pinned ${plugins(written.pins.length)} in ${written.file.path}.',
@@ -297,8 +319,7 @@ class PocketCli {
   /// Sends the bundle: the kernel and the assets, not the engine's own
   /// snapshots, which RR Pocket carries.
   Future<int> install(String bundlePath) async {
-    final phone = await Phone.load(config);
-    final hello = await phone.hello();
+    final (phone, hello) = await _reach();
     checkEngine(hello, sdkVersions(environment));
     // The bundle is <project>/build/flutter_assets.
     checkPlugins(hello, Directory(bundlePath).parent.parent);
@@ -365,8 +386,7 @@ class PocketCli {
         if (!stopped.isCompleted) stopped.complete();
       });
     }
-    final phone = await Phone.load(config);
-    final hello = await phone.hello();
+    final (phone, hello) = await _reach();
     // Checked before the project starts on the phone, not after.
     final relay = switch (hello['vmRelayPort']) {
       final int port => port,

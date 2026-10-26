@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:rr_pocket/src/constants.dart';
 
 /// The `pocket` custom device: Flutter calls [helper] with `ping`,
-/// `install`, `run` and `uninstall`.
+/// `install`, `run`, `uninstall` and `screenshot`.
 Map<String, Object?> deviceConfig(List<String> helper) {
   List<String> call(List<String> args) => [...helper, ...args];
   return {
@@ -20,7 +20,7 @@ Map<String, Object?> deviceConfig(List<String> helper) {
     'runDebug': call(['run', r'${appName}']),
     'forwardPort': null,
     'forwardPortSuccessRegex': null,
-    'screenshot': null,
+    'screenshot': call(['screenshot']),
     'readLogs': null,
   };
 }

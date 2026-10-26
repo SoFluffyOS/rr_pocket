@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:rr_pocket/src/constants.dart';
 import 'package:rr_pocket/src/services/pinned_tls.dart';
@@ -25,7 +26,8 @@ String describePhoneError(Object error) => switch (error) {
           'computer paired with (it was reinstalled, its data was cleared, '
           'or it is another device). Update RR Pocket if it is old, then '
           'pair again: pocket pair',
-      TimeoutException() => 'the phone did not answer in time',
+      TimeoutException() =>
+        'the phone did not answer in time; unlock it and open RR Pocket',
       HttpException(:final message) => 'the connection failed ($message)',
       _ => '$error',
     };
@@ -176,35 +178,72 @@ class Phone {
     bool gzip = false,
     Duration timeout = requestTimeout,
   }) async {
+    final (status, bytes) = await _exchange(
+      method,
+      path,
+      body: body,
+      gzip: gzip,
+      timeout: timeout,
+    );
+    final text = utf8.decode(bytes, allowMalformed: true);
+    final json = _decode(text);
+    if (status != 200) {
+      throw PocketException('$method $path: ${json?['error'] ?? text}');
+    }
+    if (json == null) throw PocketException('$method $path: $text');
+    return json;
+  }
+
+  /// What the phone's screen shows, as a PNG.
+  Future<List<int>> screenshot() async {
+    final (status, bytes) = await _exchange('GET', '/screenshot');
+    if (status == 404) {
+      throw const PocketException(
+        'this RR Pocket takes no screenshots; update it',
+      );
+    }
+    if (status != 200) {
+      final text = utf8.decode(bytes, allowMalformed: true);
+      throw PocketException('screenshot: ${_decode(text)?['error'] ?? text}');
+    }
+    return bytes;
+  }
+
+  Future<(int, List<int>)> _exchange(
+    String method,
+    String path, {
+    List<int>? body,
+    bool gzip = false,
+    Duration timeout = requestTimeout,
+  }) async {
     HttpClientRequest? sent;
-    Future<(HttpClientResponse, String)> exchange() async {
+    Future<(int, List<int>)> exchange() async {
       final request = sent = await _client.openUrl(method, _uri(path));
       request.headers.set('authorization', 'Bearer $code');
       if (gzip) request.headers.set('content-encoding', 'gzip');
       request.contentLength = body?.length ?? 0;
       if (body != null) request.add(body);
       final response = await request.close();
-      return (response, await utf8.decodeStream(response));
+      final bytes = await response.fold<BytesBuilder>(
+        BytesBuilder(copy: false),
+        (all, chunk) => all..add(chunk),
+      );
+      return (response.statusCode, bytes.takeBytes());
     }
 
-    final (response, text) = await exchange().timeout(
+    final (status, bytes) = await exchange().timeout(
       timeout,
       onTimeout: () {
         sent?.abort();
         throw TimeoutException('$method $path', timeout);
       },
     );
-    if (response.statusCode == 401) {
+    if (status == 401) {
       throw const PocketException(
         'the phone refused the pairing code; pair again',
       );
     }
-    final json = _decode(text);
-    if (response.statusCode != 200) {
-      throw PocketException('$method $path: ${json?['error'] ?? text}');
-    }
-    if (json == null) throw PocketException('$method $path: $text');
-    return json;
+    return (status, bytes);
   }
 
   /// [path] may hold escapes (`%2F`), kept as they are.

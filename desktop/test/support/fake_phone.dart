@@ -9,9 +9,15 @@ enum PairAnswer { allow, refuse, noAnswer, busy }
 
 /// RR Pocket's control server, as far as the computer sees it: over TLS
 /// with its own certificate, checks the pairing code, answers `/hello`,
-/// takes a bundle, runs and stops.
+/// takes a bundle, runs, stops and takes screenshots.
 class FakePhone {
-  FakePhone._(this._server, this.code, this.plugins, this.engineRevision);
+  FakePhone._(
+    this._server,
+    this.code,
+    this.plugins,
+    this.engineRevision,
+    this.fingerprint,
+  );
 
   /// The phone's certificate, or another phone's, and what a computer pins
   /// for it. Test-only keys, made with openssl.
@@ -27,7 +33,11 @@ class FakePhone {
   }
 
   /// The certificate this phone serves, as a computer pins it.
-  final fingerprint = fingerprintOf();
+  final String fingerprint;
+
+  /// What `GET /screenshot` answers; null: a 404, as an RR Pocket from
+  /// before screenshots.
+  List<int>? screenshot;
 
   /// A QR code's token the user allowed, for `POST /pair {"token"}`.
   String? offeredToken;
@@ -41,13 +51,21 @@ class FakePhone {
     String code = '12345678',
     Map<String, String> plugins = const {'shared_preferences': '2.5.6'},
     String engineRevision = 'engine-a',
+    // 'other': another phone's certificate.
+    String identityName = 'phone',
   }) async {
     final server = await HttpServer.bindSecure(
       InternetAddress.loopbackIPv4,
       0,
-      identity(),
+      identity(identityName),
     );
-    final phone = FakePhone._(server, code, plugins, engineRevision);
+    final phone = FakePhone._(
+      server,
+      code,
+      plugins,
+      engineRevision,
+      fingerprintOf(identityName),
+    );
     server.listen(phone._handle);
     return phone;
   }
@@ -115,6 +133,16 @@ class FakePhone {
       return response.close();
     }
     await request.drain<void>();
+    if (path == '/screenshot') {
+      if (screenshot case final png?) {
+        response.headers.contentType = ContentType('image', 'png');
+        response.add(png);
+      } else {
+        response.statusCode = 404;
+        response.write(jsonEncode({'error': 'no GET /screenshot'}));
+      }
+      return response.close();
+    }
     final reply = switch (path) {
       '/hello' => {
           'name': 'Test Phone',

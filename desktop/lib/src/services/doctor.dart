@@ -7,6 +7,7 @@ import 'package:rr_pocket/src/services/flutter_device.dart';
 import 'package:rr_pocket/src/services/phone.dart';
 import 'package:rr_pocket/src/services/pinned_tls.dart';
 import 'package:rr_pocket/src/services/project_files.dart';
+import 'package:rr_pocket/src/services/reach.dart';
 
 enum DoctorState { ok, warning, problem }
 
@@ -23,40 +24,51 @@ class DoctorCheck {
 /// Checks, in the order they depend on each other, everything that has to
 /// be right for `flutter run -d pocket`: the pairing, the phone answering,
 /// the Flutter on the PATH, the `pocket` device, and, given a [project],
-/// its plugins.
+/// its plugins. A phone that moved to a new address is followed there
+/// ([reachPhone], with [discover]).
 Future<List<DoctorCheck>> runDoctor({
   required PocketConfig config,
   required RunFlutter flutter,
   Directory? project,
+  Future<List<FoundPhone>> Function()? discover,
 }) async {
   final checks = <DoctorCheck>[];
-  final phone = await Phone.tryLoad(config);
+  final paired = await Phone.tryLoad(config);
+  paired?.close();
   Map<String, Object?>? hello;
-  if (phone == null) {
+  if (paired == null) {
     checks.add(const DoctorCheck(
       DoctorState.problem,
       'Not paired with a phone.',
       fix: 'Open RR Pocket on the phone, then run `pocket pair`.',
     ));
   } else {
-    final address = PhoneAddress(phone.host, phone.port);
+    final address = PhoneAddress(paired.host, paired.port);
     try {
-      hello = await phone.hello().timeout(const Duration(seconds: 10));
+      final (phone, answer) = await reachPhone(
+        config,
+        discover: discover ?? () async => const [],
+      ).timeout(const Duration(seconds: 15));
+      hello = answer;
+      phone.close();
+      final now = PhoneAddress(phone.host, phone.port);
+      final moved = switch ('$now' == '$address') {
+        true => '',
+        false => ', moved from $address; pairing updated',
+      };
       checks.add(DoctorCheck(
         DoctorState.ok,
-        'RR Pocket answers at $address (Flutter ${hello['flutterVersion']}, '
-        '${bundledPlugins(hello).length} plugin packages, certificate '
-        '${shortFingerprint(phone.fingerprint ?? '')}).',
+        'RR Pocket answers at $now (Flutter ${answer['flutterVersion']}, '
+        '${bundledPlugins(answer).length} plugin packages, certificate '
+        '${shortFingerprint(phone.fingerprint ?? '')}$moved).',
       ));
     } catch (error) {
       checks.add(DoctorCheck(
         DoctorState.problem,
         'RR Pocket at $address does not answer: ${describePhoneError(error)}.',
         fix: 'Open RR Pocket on the phone, on the same Wi-Fi as this '
-            'computer. If its address changed, run `pocket pair` again.',
+            'computer.',
       ));
-    } finally {
-      phone.close();
     }
   }
 
@@ -95,17 +107,8 @@ Future<List<DoctorCheck>> runDoctor({
       'Flutter\'s custom devices are off, so `pocket` is not a device.',
       fix: 'Run `pocket pair` again: it turns them on.',
     ));
-  } else if (!await config.registeredFile.exists()) {
-    checks.add(const DoctorCheck(
-      DoctorState.warning,
-      'The `pocket` device may not be registered with Flutter.',
-      fix: 'Run `pocket pair` again: it registers the device.',
-    ));
   } else {
-    checks.add(const DoctorCheck(
-      DoctorState.ok,
-      'The `pocket` device is registered with Flutter.',
-    ));
+    checks.add(await _registrationCheck(config));
   }
 
   if (project != null &&
@@ -114,6 +117,54 @@ Future<List<DoctorCheck>> runDoctor({
     checks.addAll(_projectChecks(project, hello));
   }
   return checks;
+}
+
+/// Whether the `pocket` device Flutter calls still works: the Dart and the
+/// package config it runs go away with the Flutter SDK or the pub cache
+/// they came from, and then the device just stops showing up.
+Future<DoctorCheck> _registrationCheck(PocketConfig config) async {
+  const again = 'Run `pocket pair` again: it registers the device.';
+  final record = config.registeredFile;
+  if (!await record.exists()) {
+    return const DoctorCheck(
+      DoctorState.warning,
+      'The `pocket` device may not be registered with Flutter.',
+      fix: again,
+    );
+  }
+  // A record from before it held the whole device is a list: no screenshots.
+  if (_json(await record.readAsString())
+      case {'ping': [final String dart, ...final rest]}) {
+    const packages = '--packages=';
+    final missing = [
+      for (final path in [
+        dart,
+        for (final part in rest)
+          if (part case final String option when option.startsWith(packages))
+            option.substring(packages.length),
+      ])
+        if (!File(path).existsSync()) path,
+    ];
+    if (missing.isEmpty) {
+      return const DoctorCheck(
+        DoctorState.ok,
+        'The `pocket` device is registered with Flutter.',
+      );
+    }
+    return DoctorCheck(
+      DoctorState.problem,
+      'The `pocket` device runs ${missing.join(' and ')}, which no longer '
+      'exists (a Flutter SDK or rr_pocket removed?), so Flutter does not '
+      'list it.',
+      fix: again,
+    );
+  }
+  return const DoctorCheck(
+    DoctorState.warning,
+    'The `pocket` device was registered by an older rr_pocket, without '
+    'screenshots.',
+    fix: again,
+  );
 }
 
 List<DoctorCheck> _projectChecks(
