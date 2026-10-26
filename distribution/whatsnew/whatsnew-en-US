@@ -1,1 +1,1 @@
-First release: run your Flutter project on this phone with flutter run -d pocket. No Android SDK, no adb. Hot reload, 26 plugins built in.
+Now on Flutter 3.47.8: run your project with the same version (fvm use 3.47.8). No Android SDK, no adb, hot reload, 29 plugins built in.

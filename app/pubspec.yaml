@@ -1,7 +1,7 @@
 name: rr_pocket
 description: "RR Pocket: run a Flutter project on this phone, no Android build."
 publish_to: 'none'
-version: 0.1.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.13.5

@@ -86,7 +86,7 @@ on:
 env:
   # RR Pocket runs a project's kernel only when the project's SDK has the same
   # engine, so a release pins the Flutter it carries (the home screen shows it).
-  FLUTTER_VERSION: '3.47.7'
+  FLUTTER_VERSION: '3.47.8'
   PACKAGE_NAME: ${{ secrets.ANDROID_APP_PACKAGE_NAME || 'io.sofluffy.raccoon.runtime.pocket' }}
 
 jobs:
