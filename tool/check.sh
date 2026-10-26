@@ -17,6 +17,9 @@ flutter test --reporter expanded
 (cd "$root/probe" && flutter analyze)
 
 rm -rf build/app/test-results/testDebugUnitTest
+# Flutter writes the Gradle wrapper (git-ignored) only when it builds; a
+# fresh checkout, as in CI, has none.
+[[ -x android/gradlew ]] || flutter build apk --config-only >/dev/null
 (cd android && ./gradlew -q :app:testDebugUnitTest) || true
 python3 -I - build/app/test-results/testDebugUnitTest <<'PY'
 import glob, re, sys
