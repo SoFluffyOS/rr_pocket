@@ -187,7 +187,7 @@ const DocsPage = () => (
         <Code>flutter run</Code> stops and says which version RR Pocket needs. Run the project with that version, for
         example with <a className="link" href={links.fvm}>fvm</a>:
       </p>
-      <CodeBlock code={'fvm use 3.47.8\nfvm flutter run -d pocket'} />
+      <CodeBlock code={'fvm use <the version it names>\nfvm flutter run -d pocket'} />
     </Problem>
     <Problem title="Plugin versions differ">
       <p>

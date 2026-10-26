@@ -85,7 +85,9 @@ Pair with Phone** and **RR Pocket: Match Plugin Versions** do the two steps
 above (`desktop/README.md`).
 
 The project's Flutter version must be RR Pocket's (the home screen says
-which), and its plugins the versions RR Pocket carries; `flutter run` stops
+which). Each release carries the latest stable Flutter, as this repo's
+`.fvmrc` and CI use, so a project on stable matches. Its plugins must be the
+versions RR Pocket carries; `flutter run` stops
 with a message saying which when they aren't. A plugin RR Pocket lacks gets a
 warning: calls to it throw `MissingPluginException`. How it works:
 `docs/wifi.md`.

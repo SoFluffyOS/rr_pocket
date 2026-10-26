@@ -85,8 +85,9 @@ on:
 
 env:
   # RR Pocket runs a project's kernel only when the project's SDK has the same
-  # engine, so a release pins the Flutter it carries (the home screen shows it).
-  FLUTTER_VERSION: '3.47.8'
+  # engine. A release carries the latest stable Flutter at the time it is
+  # built (the home screen and `pocket doctor` show which), so users on
+  # stable match: update distribution/whatsnew when that version changes.
   PACKAGE_NAME: ${{ secrets.ANDROID_APP_PACKAGE_NAME || 'io.sofluffy.raccoon.runtime.pocket' }}
 
 jobs:
@@ -110,7 +111,6 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
           cache-key: 'flutter-:os:-:channel:-:version:-:arch:'
 
