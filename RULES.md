@@ -70,9 +70,8 @@ Break one of these and a user's project stops running, often silently.
   Flutter's SIGTERM, so a stopped run stays open on the phone
   (`test/stop_test.dart`). Never a snapshot path: it is named after the Dart
   version and replaced on upgrade.
-- **The package is private until the app is live.** Don't `dart pub
-  publish` or make the repo public without Simon's go-ahead; a published
-  version can't be deleted.
+- **Releases wait for Simon's go-ahead.** Don't `dart pub publish` or
+  upload to Play without it; a published version can't be deleted.
 
 ## Phones and emulators
 

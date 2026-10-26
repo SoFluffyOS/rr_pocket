@@ -5,18 +5,14 @@ Graphics are in `play/`: six screenshots and the feature graphic (remake
 with `tool/capture_store_screens.py` on a paired emulator, then
 `tool/make_store_assets.py`).
 
-## Before publishing (Simon)
+## Links
 
-- **Publish the `rr_pocket` package when the listing goes live.** The
-  description tells users to run `dart pub global activate rr_pocket`; that
-  works only once `desktop/` is on pub.dev.
-- **Host the site at https://rr.sofluffy.io** (`../site/`: landing page,
-  docs, privacy policy; `npm run build` there, then host `dist/`). The app's
-  Help and Privacy links and the Lumide plugin's Help already point there.
-- **Privacy policy URL for Play:** https://rr.sofluffy.io/privacy.html
-- **First upload by hand:** Play's API can't create the app, so the first
-  bundle goes up in the Play Console (from the workflow's artifact or
-  `tool/build_aab.sh`); later releases can come from the workflow.
+- Live on Play as of 2026-10-26; the `rr_pocket` package is on pub.dev
+  (1.0.0), which the description's `dart pub global activate rr_pocket`
+  needs.
+- Site: https://rr.sofluffy.io (`../site/`). Privacy policy URL for Play:
+  https://rr.sofluffy.io/privacy.html
+- Later releases can come from `.github/workflows/deploy_google_play.yml`.
 
 ## App name (30 max)
 
