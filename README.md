@@ -113,8 +113,7 @@ the new APK and run `tool/run_probe.sh`; it fails on any `MISSING`.
   then `tool/make_store_assets.py`.
 - `tool/build_aab.sh`: the Play bundle, debug engine, not debuggable.
 - `.github/workflows/deploy_google_play.yml`: builds, tests and uploads to
-  Play (from Media Converter Ultimate's workflow; secrets listed at its
-  top).
+  Play (secrets listed at its top).
 - `tool/build_apk.sh`: the build above.
 - `tool/check.sh`: every check that needs no phone (analysis, Flutter
   tests, Kotlin tests for the pairing code and the control server).

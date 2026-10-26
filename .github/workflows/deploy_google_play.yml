@@ -2,10 +2,10 @@
 # GitHub Actions Workflow: Deploy to Google Play
 # ==============================================================================
 #
-# Copied from Media Converter Ultimate's workflow and adapted: RR Pocket
-# ships Flutter's DEBUG engine (that is what runs a project's kernel with hot
-# reload), so it is built by tool/build_aab.sh, which turns off the
-# debuggable flag Play rejects, not by `flutter build appbundle --release`.
+# RR Pocket ships Flutter's DEBUG engine (that is what runs a project's
+# kernel with hot reload), so it is built by tool/build_aab.sh, which turns
+# off the debuggable flag Play rejects, not by `flutter build appbundle
+# --release`.
 #
 # Google Play's API can't create an app: upload the very first bundle by hand
 # in the Play Console (build it with this workflow, or tool/build_aab.sh, and
