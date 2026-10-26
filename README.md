@@ -130,5 +130,9 @@ the new APK and run `tool/run_probe.sh`; it fails on any `MISSING`.
   checkout: `dart pub global activate --source path desktop`, or in Lumide,
   Plugins → Load Local Plugin → `desktop/`.
 - `docs/wifi.md`: how `flutter run -d pocket` works, and what it took.
+- `docs/flutter-versions.md`: why one Flutter version, and the ways to run
+  more we looked at.
+- `docs/multiple-phones.md`: running on several phones at once, for two
+  phones or a room of them.
 - `tool/drive_attach.py`: the adb-based spike driver: attaches from a
   project, restarts into it, edits, hot reloads, and times both.
