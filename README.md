@@ -114,6 +114,9 @@ the new APK and run `tool/run_probe.sh`; it fails on any `MISSING`.
 - `tool/build_aab.sh`: the Play bundle, debug engine, not debuggable.
 - `.github/workflows/deploy_google_play.yml`: builds, tests and uploads to
   Play (secrets listed at its top).
+- `.github/workflows/check.yml`: `tool/check.sh` on Linux and the desktop
+  package's tests on Linux, macOS and Windows, on every push and pull
+  request.
 - `tool/build_apk.sh`: the build above.
 - `tool/check.sh`: every check that needs no phone (analysis, Flutter
   tests, Kotlin tests for the pairing code and the control server).
