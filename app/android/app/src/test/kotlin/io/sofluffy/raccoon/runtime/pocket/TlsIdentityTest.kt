@@ -94,6 +94,8 @@ class TlsIdentityTest {
                 override fun run(bundle: File) = "/auth/"
 
                 override fun stop() {}
+
+                override fun screenshot(): ByteArray? = null
             },
             prompt = object : PocketServer.PairPrompt {
                 override fun ask(computer: String, from: String, answer: (PocketServer.PairAnswer) -> Unit) {}

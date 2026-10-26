@@ -2,10 +2,17 @@ package io.sofluffy.raccoon.runtime.pocket
 
 import android.app.Activity
 import android.content.Context
+import android.graphics.Bitmap
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterJNI
+import java.io.ByteArrayOutputStream
 import java.util.Date
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import org.json.JSONObject
 import java.io.File
@@ -28,6 +35,9 @@ object Pocket {
     private var link: String? = null
 
     private var relay: VmRelay? = null
+
+    /** The engine the activity runs: RR Pocket's screen, or a project's. */
+    private var engine = WeakReference<FlutterEngine>(null)
 
     /** Set by [start]: the phone's TLS key and certificate. */
     private var identity: TlsIdentity? = null
@@ -82,7 +92,14 @@ object Pocket {
             actions = object : PocketServer.Actions {
                 override fun run(bundle: File) = runInView(bundle)
 
-                override fun stop() = stopProject()
+                // Flutter stops the last run before each install; with none
+                // running, a new engine for RR Pocket's own screen would only
+                // cost the phone time while the bundle uploads.
+                override fun stop() {
+                    if (prompt.projectRunning) stopProject()
+                }
+
+                override fun screenshot() = captureScreen()
             },
             prompt = prompt,
             secure = identity::serve,
@@ -94,6 +111,28 @@ object Pocket {
     }
 
     private fun activity() = activity.get()
+
+    @Synchronized
+    fun attachEngine(engine: FlutterEngine) {
+        this.engine = WeakReference(engine)
+    }
+
+    /**
+     * The Flutter view's last frame as a PNG, as `s` in `flutter run`
+     * wants it. The engine draws it again into a bitmap, on the main
+     * thread; platform views (a camera preview) are not in it.
+     */
+    private fun captureScreen(): ByteArray? {
+        val renderer = synchronized(this) { engine.get() }?.renderer ?: return null
+        val frame = ArrayBlockingQueue<Result<Bitmap?>>(1)
+        Handler(Looper.getMainLooper()).post { frame.offer(runCatching { renderer.bitmap }) }
+        val bitmap = frame.poll(10, TimeUnit.SECONDS)?.getOrNull() ?: return null
+        return ByteArrayOutputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            bitmap.recycle()
+            it.toByteArray()
+        }
+    }
 
     /** Replaces the watch on the project's first seconds; null ends it. */
     @Synchronized

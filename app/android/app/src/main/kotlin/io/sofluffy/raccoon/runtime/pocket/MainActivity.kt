@@ -13,6 +13,7 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val pairing = Pocket.start(this)
+        Pocket.attachEngine(flutterEngine)
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "rr_pocket/pairing")
         channel.setMethodCallHandler { call, result ->
             when (call.method) {

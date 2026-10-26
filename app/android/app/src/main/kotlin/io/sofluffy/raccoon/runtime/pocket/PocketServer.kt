@@ -8,6 +8,9 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -28,6 +31,7 @@ import org.json.JSONObject
  *  POST /run              restart the engine into the bundle
  *  POST /stop             back to RR Pocket's own screen
  *  GET  /logs             the running app's `print` output, as it comes
+ *  GET  /screenshot       what the screen shows, as a PNG
  *  POST /pair             ask the user to give a computer the code, or
  *                         redeem a QR code the user allowed
  *
@@ -55,8 +59,11 @@ class PocketServer(
     private val readTimeoutMs: Int = 30_000,
     private val limit: ConnectionLimit = ConnectionLimit(total = 32, perSender = 16),
     private val now: () -> Long = System::currentTimeMillis,
-    /** The running app's log, from now on; logcat on a phone. */
-    private val openLog: () -> Process = ::logcat,
+    /**
+     * The running app's log, from the time given (millis) or, given null,
+     * from the newest line already logged; logcat on a phone.
+     */
+    private val openLog: (Long?) -> Process = ::logcat,
 ) {
     @Volatile
     private var quietUntil = 0L
@@ -66,6 +73,9 @@ class PocketServer(
         fun run(bundle: File): String
 
         fun stop()
+
+        /** What the Flutter view shows, as a PNG; null when there is none. */
+        fun screenshot(): ByteArray?
     }
 
     /** RR Pocket's own screen asking "Pair with <computer>?". */
@@ -85,6 +95,13 @@ class PocketServer(
 
     /** Set while a /pair request waits for the user; one at a time. */
     private val asking = AtomicBoolean(false)
+
+    /**
+     * When the last /run began, so its /logs starts there: a project prints
+     * before `pocket run` opens /logs, and those lines would be lost.
+     */
+    @Volatile
+    private var runStarted: Long? = null
 
     /** The /logs streams open: a session's ends when the next starts. */
     private val logs = ConcurrentHashMap.newKeySet<Process>()
@@ -136,7 +153,9 @@ class PocketServer(
                     val request = Request.read(input) ?: return
                     if (request.method == "GET" && request.path == "/logs") {
                         refusal(request, sender)?.let { refused -> return refused.write(output, close = true) }
-                        return streamLogs(output)
+                        // Open as long as the session: a quiet app is no reason to end it.
+                        it.soTimeout = 0
+                        return streamLogs(input, output)
                     }
                     val response = try {
                         respond(request, from, sender)
@@ -169,9 +188,15 @@ class PocketServer(
         return Response(401, error("wrong pairing code"))
     }
 
-    /** Ends every /logs stream: the session they belong to is over. */
+    /**
+     * Ends every /logs stream: the session they belong to is over. Taken out
+     * of [logs] first, so their ends don't stop the next session.
+     */
     private fun endLogs() {
-        for (log in logs.toList()) log.destroy()
+        for (log in logs.toList()) {
+            logs -= log
+            log.destroy()
+        }
     }
 
     /**
@@ -180,27 +205,46 @@ class PocketServer(
      * the Wi-Fi) is noticed only on a write, and a quiet app writes nothing:
      * without the end at the next session, each such stream would keep a
      * thread, a logcat and one of the sender's connections for good.
+     *
+     * The computer's `pocket run` holds this stream for the whole session, so
+     * the stream closing from its side means the run is over, even when the
+     * tool was killed before it could send /stop (Flutter on Windows has no
+     * SIGTERM to send it). The project stops with it, unless a later /run or
+     * /stop already ended this session.
      */
-    private fun streamLogs(output: OutputStream) {
+    private fun streamLogs(input: InputStream, output: OutputStream) {
         output.write(
             "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\n"
                 .toByteArray(),
         )
         output.flush()
-        val log = openLog()
+        val since = runStarted
+        val log = openLog(since)
         logs += log
+        val computerEnds = thread(isDaemon = true, name = "rr-pocket-logs-end") {
+            try {
+                while (input.read() != -1) continue
+            } catch (_: Exception) {
+            }
+            if (logs.remove(log)) {
+                log.destroy()
+                actions.stop()
+            }
+        }
         try {
             val reader = log.inputStream.bufferedReader()
-            reader.readLine() // logged before this stream began
+            if (since == null) reader.readLine() // logged before this stream began
             while (true) {
                 val line = reader.readLine() ?: break
-                output.write((line + "\n").toByteArray())
+                output.write((logLine(line) + "\n").toByteArray())
                 // One TLS record per burst, not per line, for chatty apps.
                 if (!reader.ready()) output.flush()
             }
+            // logcat ended by itself, not by the session ending: closing now
+            // would read as the computer leaving and stop the project.
+            if (log in logs) computerEnds.join()
         } catch (_: Exception) {
         } finally {
-            logs -= log
             log.destroy()
         }
     }
@@ -230,13 +274,19 @@ class PocketServer(
                     return Response(409, error("no bundle installed"))
                 }
                 endLogs()
+                runStarted = now()
                 val vmPath = actions.run(bundle)
                 Response(200, """{"vmPath":${quote(vmPath)}}""")
             }
             request.method == "POST" && path == "/stop" -> {
+                runStarted = null
                 endLogs()
                 actions.stop()
                 Response(200, ok())
+            }
+            request.method == "GET" && path == "/screenshot" -> {
+                val png = actions.screenshot() ?: return Response(409, error("nothing on the screen to capture; open RR Pocket"))
+                Response(200, png, "image/png")
             }
             else -> Response(404, error("no ${request.method} $path"))
         }
@@ -398,10 +448,15 @@ class PocketServer(
         }
     }
 
-    private class Response(val status: Int, private val json: String) {
+    private class Response(
+        val status: Int,
+        private val body: ByteArray,
+        private val contentType: String = "application/json",
+    ) {
+        constructor(status: Int, json: String) : this(status, json.toByteArray())
+
         /** With [close], says so: the server ends the connection after it. */
         fun write(output: OutputStream, close: Boolean = false) {
-            val body = json.toByteArray()
             val reason = when (status) {
                 200 -> "OK"
                 400 -> "Bad Request"
@@ -414,7 +469,7 @@ class PocketServer(
                 else -> "Error"
             }
             output.write(
-                ("HTTP/1.1 $status $reason\r\nContent-Type: application/json\r\n" +
+                ("HTTP/1.1 $status $reason\r\nContent-Type: $contentType\r\n" +
                     "Content-Length: ${body.size}\r\n" +
                     (if (close) "Connection: close\r\n" else "") + "\r\n").toByteArray(),
             )
@@ -434,13 +489,29 @@ class PocketServer(
 
         /**
          * Dart's `print` lands in this process's log under the `flutter`
-         * tag, and an app may read its own log. `-T 1` starts with the
-         * newest line already logged, which [streamLogs] skips.
+         * tag, and an app may read its own log. Errors under other tags come
+         * too: a plugin's native side reports its failures there, and the
+         * project's author would otherwise never see them. From [since],
+         * or `-T 1`: the newest line already logged, which [streamLogs]
+         * skips.
          */
-        private fun logcat(): Process = ProcessBuilder(
-            "logcat", "-v", "raw", "-T", "1", "--pid=${android.os.Process.myPid()}",
-            "flutter:V", "*:S",
+        private fun logcat(since: Long?): Process = ProcessBuilder(
+            "logcat", "-v", "tag", "-T", since?.let(::logcatTime) ?: "1",
+            "--pid=${android.os.Process.myPid()}", "flutter:V", "*:E",
         ).redirectErrorStream(true).start()
+
+        /** [millis] as logcat's `-T` reads a time: the phone's local time. */
+        private fun logcatTime(millis: Long): String =
+            SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.US).format(Date(millis))
+
+        private val flutterTag = Regex("""^[VDIWEF]/flutter\s*: ?""")
+
+        /**
+         * A logcat line (`-v tag`: `E/CameraX: message`) as Flutter shows
+         * it: `print` output bare, as Flutter expects; other tags kept, so
+         * the line says where it came from.
+         */
+        fun logLine(line: String) = line.replaceFirst(flutterTag, "")
 
         fun quote(text: String) =
             "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\""

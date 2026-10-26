@@ -22,7 +22,8 @@ class PocketServerTest {
     private val base: File = Files.createTempDirectory("pocket").toFile()
     private val root = File(base, "root").apply { mkdirs() }
     private var ran: File? = null
-    private var stopped = false
+    private val stops = AtomicInteger()
+    @Volatile private var screen: ByteArray? = null
     private val prompt = FakePrompt()
     private val offers = PairOffers(lifetimeMs = 1000, now = { clock })
     @Volatile private var clock = 0L
@@ -32,7 +33,7 @@ class PocketServerTest {
         readTimeoutMs: Int = 30_000,
         limit: ConnectionLimit = ConnectionLimit(total = 32, perSender = 16),
         lockedOut: (String) -> Boolean = { false },
-        openLog: () -> Process = { error("this test reads no log") },
+        openLog: (Long?) -> Process = { error("this test reads no log") },
     ) = PocketServer(
         port = 0,
         code = "CODE",
@@ -48,8 +49,10 @@ class PocketServerTest {
             }
 
             override fun stop() {
-                stopped = true
+                stops.incrementAndGet()
             }
+
+            override fun screenshot() = screen
         },
         prompt = prompt,
         secure = { it },
@@ -144,7 +147,7 @@ class PocketServerTest {
     @Test
     fun stops() {
         assertEquals(200, request("POST", "/stop").status)
-        assertTrue(stopped)
+        assertEquals(1, stops.get())
     }
 
     @Test
@@ -355,6 +358,7 @@ class PocketServerTest {
             "POST" to "/run",
             "POST" to "/stop",
             "GET" to "/logs",
+            "GET" to "/screenshot",
             "GET" to "/pair",
             "POST" to "/nothing",
         )
@@ -362,7 +366,7 @@ class PocketServerTest {
             assertEquals("$method $path", 401, request(method, path, code = null).status)
         }
         assertEquals(null, ran)
-        assertFalse(stopped)
+        assertEquals(0, stops.get())
     }
 
     @Test
@@ -406,7 +410,7 @@ class PocketServerTest {
 
     @Test
     fun theNextSessionEndsTheLastOnesLogStream() {
-        val port = startServer(openLog = {
+        val port = startServer(openLog = { _ ->
             ProcessBuilder("sh", "-c", "echo before; echo hello; exec sleep 60").start()
         })
         Socket("127.0.0.1", port).use { socket ->
@@ -425,6 +429,90 @@ class PocketServerTest {
         }
     }
 
+    @Test
+    fun takesAScreenshot() {
+        assertEquals(409, request("GET", "/screenshot").status)
+
+        screen = "PNG bytes".toByteArray()
+        val response = request("GET", "/screenshot")
+
+        assertEquals(200, response.status)
+        assertTrue(response.head, response.head.contains("Content-Type: image/png"))
+        assertEquals("PNG bytes", response.body)
+    }
+
+    /** Opens /logs and reads up to its first line, "hello". */
+    private fun openLogs(port: Int): Socket {
+        val socket = Socket("127.0.0.1", port)
+        socket.soTimeout = 5000
+        socket.getOutputStream().write("GET /logs HTTP/1.1\r\nAuthorization: Bearer CODE\r\n\r\n".toByteArray())
+        val input = socket.getInputStream()
+        val head = StringBuilder()
+        while (!head.endsWith("hello\n")) head.append(input.read().toChar())
+        return socket
+    }
+
+    private fun logServer() = startServer(openLog = { _ ->
+        ProcessBuilder("sh", "-c", "echo before; echo I/flutter : hello; exec sleep 60").start()
+    })
+
+    @Test
+    fun aRunsLogStartsWhenTheRunDid() {
+        val since = mutableListOf<Long?>()
+        val port = startServer(openLog = { from ->
+            since += from
+            ProcessBuilder("sh", "-c", "echo first print; exec sleep 60").start()
+        })
+        assertEquals(200, request("POST", "/bundle/begin", port = port).status)
+        assertEquals(200, request("PUT", "/bundle/kernel_blob.bin", body = "kernel".toByteArray(), port = port).status)
+        assertEquals(200, request("POST", "/bundle/commit", port = port).status)
+        clock = 1234
+        assertEquals(200, request("POST", "/run", port = port).status)
+
+        Socket("127.0.0.1", port).use { socket ->
+            socket.soTimeout = 5000
+            socket.getOutputStream().write("GET /logs HTTP/1.1\r\nAuthorization: Bearer CODE\r\n\r\n".toByteArray())
+            val lines = socket.getInputStream().bufferedReader()
+            while (lines.readLine().isNotEmpty()) continue
+            assertEquals("first print", lines.readLine())
+        }
+        assertEquals(listOf<Long?>(1234), since)
+    }
+
+    private fun awaitStops(count: Int) {
+        val until = System.currentTimeMillis() + 5000
+        while (stops.get() < count && System.currentTimeMillis() < until) Thread.sleep(10)
+    }
+
+    @Test
+    fun theComputerClosingTheLogStreamStopsTheProject() {
+        val port = logServer()
+        openLogs(port).close()
+
+        awaitStops(1)
+        assertEquals(1, stops.get())
+    }
+
+    @Test
+    fun aLogStreamClosedAfterItsSessionEndedStopsNothingMore() {
+        val port = logServer()
+        val logs = openLogs(port)
+        assertEquals(200, request("POST", "/stop", port = port).status)
+        assertEquals(1, stops.get())
+
+        logs.close()
+
+        Thread.sleep(300)
+        assertEquals(1, stops.get())
+    }
+
+    @Test
+    fun logLinesShowPrintBareAndOtherTagsWithTheirTag() {
+        assertEquals("hello", PocketServer.logLine("I/flutter : hello"))
+        assertEquals("  indented", PocketServer.logLine("I/flutter :   indented"))
+        assertEquals("E/CameraX: no camera", PocketServer.logLine("E/CameraX: no camera"))
+    }
+
     private class Response(val status: Int, val body: String, val head: String = "")
 
     private fun request(
@@ -433,6 +521,7 @@ class PocketServerTest {
         code: String? = "CODE",
         body: ByteArray = ByteArray(0),
         gzip: Boolean = false,
+        port: Int = this.port,
     ): Response = Socket("127.0.0.1", port).use { socket ->
         val head = buildString {
             append("$method $path HTTP/1.1\r\n")
