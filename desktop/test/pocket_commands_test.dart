@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:lumide_api/lumide_api.dart' show MessageType;
+import 'package:path/path.dart' as path;
 import 'package:rr_pocket/rr_pocket.dart';
 import 'package:test/test.dart';
 
@@ -60,7 +61,8 @@ void main() {
     );
     host.workspace.files
         .add(Uri.file('${project.path}/pubspec.lock').toString());
-    return project.path;
+    // Native, as the commands get it from Lumide's file URIs.
+    return path.normalize(project.path);
   }
 
   List<String> messages(MessageType type) => [
@@ -354,7 +356,7 @@ void main() {
         for (final item in host.window.lastPick) item.payload
       ], [
         open,
-        '${temp.path}/a_app',
+        path.join(temp.path, 'a_app'),
       ]);
       expect(File('$open/pubspec_overrides.yaml').existsSync(), isTrue);
       expect(File('${temp.path}/a_app/pubspec_overrides.yaml').existsSync(),
@@ -449,7 +451,10 @@ void main() {
       host.workspace.files
           .add(Uri.file('${dartOnly.path}/pubspec.lock').toString());
 
-      expect(await ProjectPicker(host).flutterProjects(), ['${temp.path}/app']);
+      expect(
+        await ProjectPicker(host).flutterProjects(),
+        [path.join(temp.path, 'app')],
+      );
     });
   });
 
@@ -543,7 +548,7 @@ void main() {
       final output = host.window.channels.single;
       expect(output.shown, isTrue);
       expect('${output.text}', contains('RR Pocket answers'));
-      expect('${output.text}', contains('${temp.path}/app'));
+      expect('${output.text}', contains(path.join(temp.path, 'app')));
       // The fake shell's flutter answers nothing, and camera wants a pin.
       expect('${output.text}', contains('No working `flutter`'));
       expect('${output.text}', contains('Run `pocket pin`'));

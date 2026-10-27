@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as path;
 import 'package:rr_pocket/rr_pocket.dart';
 import 'package:test/test.dart';
 
@@ -306,7 +307,7 @@ void main() {
           .hello();
       final written = await writePins(hello, app);
 
-      expect(written.file.path, '${root.path}/pubspec_overrides.yaml');
+      expect(written.file.path, path.join(root.path, 'pubspec_overrides.yaml'));
       expect(written.pins, {
         'isar_community': '3.4.1',
         'isar_community_flutter_libs': '3.4.1',
@@ -394,7 +395,9 @@ void main() {
 
   test('the device runs on the Dart of the Flutter SDK that registered it',
       () async {
-    final dart = File('${temp.path}/sdk/bin/cache/dart-sdk/bin/dart')
+    final executable = Platform.isWindows ? 'dart.exe' : 'dart';
+    final dart = File(path.join(
+        temp.path, 'sdk', 'bin', 'cache', 'dart-sdk', 'bin', executable))
       ..createSync(recursive: true);
     Future<FlutterResult> flutter(
       List<String> arguments, {

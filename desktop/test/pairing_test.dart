@@ -269,8 +269,14 @@ void main() {
 
     test('refuses a body too large to be a pairing, and keeps waiting',
         () async {
-      final (status, _) = await post({...fromPhone(), 'pad': 'x' * 10000});
-      expect(status, 413);
+      try {
+        final (status, _) = await post({...fromPhone(), 'pad': 'x' * 10000});
+        expect(status, 413);
+      } on HttpException {
+        // Windows resets a connection closed with its body unread, so the
+        // 413 may never arrive; the body is refused all the same.
+        if (!Platform.isWindows) rethrow;
+      }
 
       final (retried, _) = await post(fromPhone());
       expect(retried, 200);
