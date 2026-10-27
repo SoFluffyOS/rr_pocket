@@ -405,7 +405,7 @@ void main() {
     }) async =>
         (
           exitCode: 0,
-          stdout: '{"flutterRoot": "${temp.path}/sdk"}',
+          stdout: jsonEncode({'flutterRoot': path.join(temp.path, 'sdk')}),
           stderr: '',
         );
     Future<FlutterResult> missing(
