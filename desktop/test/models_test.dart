@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:rr_pocket/rr_pocket.dart';
 import 'package:test/test.dart';
 
@@ -289,8 +291,12 @@ sdks:
     });
 
     test('file URIs become paths', () {
-      expect(filePathOf('file:///work/app/pubspec.lock'),
-          '/work/app/pubspec.lock');
+      expect(
+        filePathOf('file:///work/app/pubspec.lock'),
+        Platform.isWindows
+            ? r'\work\app\pubspec.lock'
+            : '/work/app/pubspec.lock',
+      );
       expect(filePathOf('/work/app'), '/work/app');
       expect(filePathOf('https://example.com'), isNull);
       expect(filePathOf(''), isNull);

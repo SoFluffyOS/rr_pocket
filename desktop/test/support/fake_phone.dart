@@ -27,8 +27,11 @@ class FakePhone {
 
   static String fingerprintOf([String name = 'phone']) {
     final pem = File('test/support/${name}_cert.pem').readAsStringSync();
-    final body =
-        pem.split('\n').where((line) => !line.startsWith('-----')).join();
+    // LineSplitter: git on Windows checks the PEM out with CRLF endings.
+    final body = const LineSplitter()
+        .convert(pem)
+        .where((line) => !line.startsWith('-----'))
+        .join();
     return sha256.convert(base64.decode(body)).toString();
   }
 
