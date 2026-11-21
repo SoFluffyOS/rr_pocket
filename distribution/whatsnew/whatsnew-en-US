@@ -1,1 +1,1 @@
-Now on Flutter 3.47.9: run your project with the same version (fvm use 3.47.9). No Android SDK, no adb, hot reload, 29 plugins built in.
+Hi folks 👋 RR Pocket now runs Flutter 3.50.1. Run your project with the same version: fvm use 3.50.1. Still no Android SDK, no adb. Hot reload and 29 plugins built in. 🦊
