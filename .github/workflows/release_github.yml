@@ -1,0 +1,139 @@
+# Builds the APKs of one Play release and publishes them as a GitHub
+# release, so someone whose project can't move to the Flutter on Play can
+# still find an RR Pocket for theirs (docs/flutter-versions.md). Runs after
+# each production release (deploy_google_play.yml), or by hand for a release
+# already on Play: give its tag (app-<version>) and the Flutter it runs.
+
+name: GitHub Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag of a Play release, e.g. app-1.0.1'
+        required: true
+        type: string
+      flutter_version:
+        description: 'The Flutter version that release runs, e.g. 3.47.9'
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      flutter_version:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & publish APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TAG: ${{ inputs.tag }}
+      FLUTTER_VERSION: ${{ inputs.flutter_version }}
+
+    steps:
+      # The release's own commit and scripts, so the APKs match what Play got.
+      - name: Checkout the release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: ${{ inputs.flutter_version }}
+          cache: true
+          cache-key: 'flutter-:os:-:channel:-:version:-:arch:'
+
+      # permission_handler_android 14 compiles against SDK 37.
+      - name: Install Android SDK Platform 37
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" > /dev/null
+
+      - name: Check the tag and the Flutter version
+        run: |
+          version="${TAG#app-}"
+          grep -q "^version: $version+" app/pubspec.yaml \
+            || { echo "::error::app/pubspec.yaml at $TAG is not version $version."; exit 1; }
+          flutter --version --machine | grep -q "\"frameworkVersion\": \"$FLUTTER_VERSION\"" \
+            || { echo "::error::Flutter is not $FLUTTER_VERSION."; exit 1; }
+
+      # An APK we sign can't replace the Play app (Play re-signs it), so each
+      # Flutter version installs beside it, under its own ID and name.
+      - name: Give the build its own app ID and name
+        run: |
+          gradle=app/android/app/build.gradle.kts
+          manifest=app/android/app/src/main/AndroidManifest.xml
+          id='io.sofluffy.raccoon.runtime.pocket'
+          grep -q "^        applicationId = \"$id\"$" "$gradle"
+          grep -q 'android:label="RR Pocket"' "$manifest"
+          sed -i "s/^        applicationId = \"$id\"$/        applicationId = \"$id.flutter${FLUTTER_VERSION//./_}\"/" "$gradle"
+          sed -i "s/android:label=\"RR Pocket\"/android:label=\"RR Pocket $FLUTTER_VERSION\"/" "$manifest"
+          git diff
+
+      - name: Configure Android Signing Credentials
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::Secret ANDROID_KEYSTORE_BASE64 is empty or not configured."
+            exit 1
+          fi
+          mkdir -p .assets
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > .assets/upload-keystore.jks
+
+      - name: Build APKs
+        env:
+          RR_KEYSTORE: ${{ github.workspace }}/.assets/upload-keystore.jks
+          RR_KEYSTORE_PASS: ${{ secrets.ANDROID_STORE_FILE_PASSWORD }}
+          RR_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          RR_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x tool/*.sh
+          version="${TAG#app-}"
+          for abi in arm64 x64; do
+            tool/build_apk.sh "$abi"
+            mv "build/rr_pocket-$abi.apk" "build/rr_pocket-$version-flutter$FLUTTER_VERSION-$abi.apk"
+          done
+          (cd build && sha256sum rr_pocket-*.apk > SHA256SUMS)
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          export VERSION="${TAG#app-}"
+          envsubst '$VERSION $FLUTTER_VERSION' > "$RUNNER_TEMP/notes.md" <<'EOF'
+          Hi folks 👋 This is RR Pocket $VERSION, with the engine of **Flutter $FLUTTER_VERSION**.
+
+          RR Pocket runs a project only with the Flutter version it was built with. Grab this one if your project is on Flutter $FLUTTER_VERSION and can't move yet.
+
+          On the latest stable? Get RR Pocket from [Google Play](https://play.google.com/store/apps/details?id=io.sofluffy.raccoon.runtime.pocket) instead.
+
+          ### 📦 Install
+
+          1. Download `rr_pocket-$VERSION-flutter$FLUTTER_VERSION-arm64.apk` for a phone, or the `x64` one for the emulator.
+          2. Open it on the phone and allow the install.
+          3. Pair it: `pocket pair`.
+
+          It installs next to the Play app as "RR Pocket $FLUTTER_VERSION". Run one at a time: they use the same ports. Going back to the other one means `pocket pair` again.
+
+          That's it. 🦊
+          EOF
+          gh release create "$TAG" build/rr_pocket-*.apk build/SHA256SUMS \
+            --verify-tag \
+            --title "RR Pocket $VERSION · Flutter $FLUTTER_VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md"
