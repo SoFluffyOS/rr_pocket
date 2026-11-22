@@ -54,9 +54,9 @@ Built 2026-11-22. Each production release on Play is tagged `app-<version>`
 and its APKs (arm64 and x64) are published as a GitHub release
 (`.github/workflows/release_github.yml`), so a project that can't move to
 the Flutter on Play can still find an RR Pocket for its version. `pocket
-install` and `pocket doctor` link there when the engines differ. Before
-this, 1.0.1 (Flutter 3.47.9) was published by hand from its tag; 1.0.0
-(3.47.8) was not.
+install` and `pocket doctor` link there when the engines differ. The
+releases before this (1.0.0, 1.0.1 and 1.1.0) were published by hand from
+their tags.
 
 - **Built from the release's tag**, with its own scripts and the Flutter it
   ran, so the APK carries the same engine and plugins as Play's.
