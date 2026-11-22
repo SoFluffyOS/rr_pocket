@@ -133,7 +133,10 @@ jobs:
 
           That's it. 🦊
           EOF
+          # GitHub calls the newest-made release Latest; a backfill isn't.
+          highest="$(git ls-remote --tags --refs origin 'app-*' | sed 's#.*refs/tags/##' | sort -V | tail -1)"
           gh release create "$TAG" build/rr_pocket-*.apk build/SHA256SUMS \
             --verify-tag \
+            --latest="$([ "$TAG" = "$highest" ] && echo true || echo false)" \
             --title "RR Pocket $VERSION · Flutter $FLUTTER_VERSION" \
             --notes-file "$RUNNER_TEMP/notes.md"
