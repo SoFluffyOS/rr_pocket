@@ -429,7 +429,11 @@ void main() {
       throwsA(isA<PocketException>().having(
         (e) => e.message,
         'message',
-        contains('RR Pocket runs Flutter 3.47.7'),
+        allOf(
+          contains('RR Pocket runs Flutter 3.47.7'),
+          contains('RR Pocket for Flutter 3.48.0'),
+          contains(releasesUrl),
+        ),
       )),
     );
     checkEngine({'engineRevision': 'a'}, {'engineRevision': 'a'});

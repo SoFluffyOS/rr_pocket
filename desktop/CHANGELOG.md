@@ -7,6 +7,9 @@
   Flutter learns the new command (Lumide does it by itself).
 - A phone the Wi-Fi gave a new address is found again on the network, by
   the certificate pinned when pairing: no new pairing needed.
+- When your Flutter differs from RR Pocket's, `pocket install` and `pocket
+  doctor` also point to the RR Pocket builds for older Flutter versions on
+  GitHub Releases.
 
 ### 🐛 Fixes
 

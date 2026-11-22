@@ -430,7 +430,8 @@ void checkEngine(Map<String, Object?> hello, Map<String, Object?>? sdk) {
   throw PocketException(
     'this project uses Flutter ${sdk['frameworkVersion']}, RR Pocket runs '
     'Flutter ${hello['flutterVersion']}. Use that version for this run '
-    '(for example with fvm).',
+    '(for example with fvm), or install the RR Pocket for Flutter '
+    '${sdk['frameworkVersion']}, if there is one: $releasesUrl',
   );
 }
 

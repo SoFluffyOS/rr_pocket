@@ -50,6 +50,9 @@ const String colorNotAnswering = '#E6B450';
 const String helpUrl = 'https://rr.sofluffy.io/docs.html';
 const String sponsorUrl = 'https://github.com/sponsors/simonpham';
 
+/// RR Pocket's earlier releases, one per Flutter version, as APKs.
+const String releasesUrl = 'https://github.com/SoFluffyOS/rr_pocket/releases';
+
 /// The first line of the pubspec_overrides.yaml that `pocket pin` writes, so
 /// it replaces only its own. `tool/pin_plugins.py` writes the same.
 const String overridesHeader = '# Written by RR Pocket (pocket pin)';

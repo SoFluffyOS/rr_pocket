@@ -97,6 +97,7 @@ void main() {
     final version = checks[1];
     expect(version.state, DoctorState.problem);
     expect(version.fix, contains('fvm use 3.47.7'));
+    expect(version.fix, contains(releasesUrl));
   });
 
   test('custom devices off, or the device not registered', () async {

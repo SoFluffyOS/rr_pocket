@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:rr_pocket/src/constants.dart';
 import 'package:rr_pocket/src/models/models.dart';
 import 'package:rr_pocket/src/services/flutter_device.dart';
 import 'package:rr_pocket/src/services/phone.dart';
@@ -94,7 +95,8 @@ Future<List<DoctorCheck>> runDoctor({
       'Flutter $ours on the PATH; RR Pocket runs Flutter '
       '${hello['flutterVersion']}. Projects built with $ours won\'t run on it.',
       fix: 'Use Flutter ${hello['flutterVersion']} for the project, for '
-          'example `fvm use ${hello['flutterVersion']}`.',
+          'example `fvm use ${hello['flutterVersion']}`, or install the RR '
+          'Pocket for Flutter $ours, if there is one: $releasesUrl',
     ));
   }
 
